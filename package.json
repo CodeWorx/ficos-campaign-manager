@@ -3,7 +3,7 @@
   "version": "3.1.0",
   "description": "Self-contained email campaign and form management desktop application",
   "main": "main.js",
-  "author": "FICOS",
+  "author": "FICOS <support@ficos.com>",
   "license": "Proprietary",
   "scripts": {
     "start": "electron .",
@@ -41,7 +41,8 @@
     "linux": {
       "target": ["AppImage", "deb"],
       "icon": "build/icon.png",
-      "category": "Office"
+      "category": "Office",
+      "maintainer": "FICOS <support@ficos.com>"
     },
     "nsis": {
       "oneClick": false,

@@ -41,7 +41,8 @@
     "linux": {
       "target": ["AppImage", "deb"],
       "icon": "build/icon.png",
-      "category": "Office"
+      "category": "Office",
+      "maintainer": "FICOS <support@ficos.com>"
     },
     "nsis": {
       "oneClick": false,

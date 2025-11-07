@@ -16,6 +16,7 @@
   "build": {
     "appId": "com.ficos.campaignmanager",
     "productName": "FICOS Campaign Manager",
+    "publish": null,
     "directories": {
       "output": "dist",
       "buildResources": "build"

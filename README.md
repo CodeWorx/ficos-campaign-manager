@@ -83,7 +83,7 @@ This repository uses GitHub Actions to automatically build installers for all pl
 - **Terms of Service:** Users must accept TOS before using the app
 - **Anti-Spam:** ZERO TOLERANCE policy - CAN-SPAM Act compliance required
 - **License:** Proprietary - Licensed to FICOS
-- **IP Protection:** Cannot redistribute, copy, or remove branding
+- **IP Protection:** Cannot redistribute, copy, or remove branding. OS version will be released after initial testing
 
 ---
 
@@ -117,7 +117,7 @@ This repository uses GitHub Actions to automatically build installers for all pl
 
 ## 🤝 Contributing
 
-This is proprietary software licensed to FICOS. Contributions are not accepted.
+Stay tuned, OS version is on the way
 
 ---
 
@@ -125,14 +125,16 @@ This is proprietary software licensed to FICOS. Contributions are not accepted.
 
 © 2025 FICOS. All Rights Reserved.
 
-This software is licensed to FICOS and cannot be redistributed, copied, or modified without permission.
+This software is licensed to FICOS and cannot be redistributed, copied, or modified without permission. 
 
 ---
 
 ## 📞 Support
 
 For issues or questions:
-- Email: support@ficos.com
+- Email: Nic@DegenSend.com
+- X: x.com/@NicsHODLN
+- Github: github.com/slacker1979
 - Documentation: See `SIMPLE_GUIDE.md`
 
 ---
@@ -141,6 +143,7 @@ For issues or questions:
 
 **FICOS Campaign Manager v3.1**  
 Created with ❤️ by FICOS
+@slacker1979 FICOS.xyz
 
 ---
 

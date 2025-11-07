@@ -3,7 +3,7 @@
   "version": "3.1.0",
   "description": "Self-contained email campaign and form management desktop application",
   "main": "main.js",
-  "author": "FICOS",
+  "author": "FICOS <support@ficos.com>",
   "license": "Proprietary",
   "scripts": {
     "start": "electron .",

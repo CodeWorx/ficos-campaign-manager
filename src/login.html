@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - FICOS Campaign Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            border-radius: 16px;
+            padding: 50px;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .logo-text {
+            font-size: 42px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 4px;
+        }
+        
+        .logo-sub {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .ficos-badge {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin-top: 30px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <div class="logo-text">FICOS</div>
+            <div class="logo-sub">Campaign Manager</div>
+        </div>
+        
+        <h1>Sign In</h1>
+        
+        <div class="error-message" id="errorMessage"></div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" required placeholder="you@company.com" autocomplete="email">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter your password" autocomplete="current-password">
+            </div>
+            
+            <div class="form-group" id="twoFactorGroup" style="display: none;">
+                <label for="twoFactorCode">2FA Code</label>
+                <input type="text" id="twoFactorCode" placeholder="000000" maxlength="6" autocomplete="one-time-code">
+                <small style="color: #666;">Enter the 6-digit code from your authenticator app</small>
+            </div>
+            
+            <button type="submit" id="loginBtn">Sign In</button>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <a href="password-recovery.html" style="color: #667eea; text-decoration: none; font-size: 14px;">Forgot password?</a>
+            </div>
+        </form>
+        
+        <div class="ficos-badge">FICOS '26</div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const twoFactorGroup = document.getElementById('twoFactorGroup');
+        let requiresTwoFactor = false;
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            errorMessage.classList.remove('show');
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const twoFactorCode = document.getElementById('twoFactorCode').value;
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Signing in...';
+            
+            try {
+                const result = await window.api.login({ 
+                    email, 
+                    password,
+                    twoFactorCode: requiresTwoFactor ? twoFactorCode : null
+                });
+                
+                if (result.requiresTwoFactor) {
+                    // Show 2FA input
+                    requiresTwoFactor = true;
+                    twoFactorGroup.style.display = 'block';
+                    document.getElementById('twoFactorCode').focus();
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Verify & Sign In';
+                    return;
+                }
+                
+                if (result.success) {
+                    loginBtn.textContent = '✓ Success!';
+                    window.location.href = 'dashboard.html';
+                } else {
+                    showError(result.error || 'Invalid email or password');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Sign In';
+                }
+            } catch (error) {
+                showError('An error occurred. Please try again.');
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Sign In';
+            }
+        });
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+    </script>
+</body>
+</html>

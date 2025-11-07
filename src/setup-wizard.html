@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Wizard - FICOS Campaign Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .wizard-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.5s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo-text {
+            font-size: 42px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 3px;
+        }
+        
+        .logo-sub {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        /* Progress Bar */
+        .progress-container {
+            margin-bottom: 30px;
+        }
+        
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: 10px;
+        }
+        
+        .progress-line {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #e0e0e0;
+            z-index: 0;
+        }
+        
+        .progress-line-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        
+        .progress-step {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-weight: 700;
+            color: #999;
+            transition: all 0.3s;
+        }
+        
+        .progress-step.active .step-circle {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .progress-step.completed .step-circle {
+            border-color: #28a745;
+            background: #28a745;
+            color: white;
+        }
+        
+        .step-label {
+            font-size: 12px;
+            color: #999;
+            font-weight: 600;
+        }
+        
+        .progress-step.active .step-label {
+            color: #667eea;
+        }
+        
+        .progress-step.completed .step-label {
+            color: #28a745;
+        }
+        
+        /* Step Content */
+        .step-content {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        .step-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        h2 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .step-description {
+            color: #666;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        label .optional {
+            color: #999;
+            font-weight: 400;
+            font-size: 12px;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .info-box strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #667eea;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #856404;
+        }
+        
+        .warning-box strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        /* Image Upload */
+        .image-upload-area {
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+        
+        .image-upload-area:hover {
+            border-color: #667eea;
+            background: #f0f7ff;
+        }
+        
+        .image-upload-area.has-image {
+            border-style: solid;
+            border-color: #28a745;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: #999;
+        }
+        
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin: 15px auto;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .image-preview.show {
+            display: block;
+        }
+        
+        /* Color Picker */
+        .color-picker-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .color-preview {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .color-preview:hover {
+            transform: scale(1.1);
+        }
+        
+        input[type="color"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .color-input-wrapper {
+            flex: 1;
+        }
+        
+        /* Buttons */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 14px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+            flex: 1;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: #d0d0d0;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            flex: 2;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .error {
+            color: #e74c3c;
+            font-size: 13px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        /* Contact Import Section */
+        .import-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .import-option {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .import-option:hover {
+            border-color: #667eea;
+            background: #f0f7ff;
+        }
+        
+        .import-option.selected {
+            border-color: #667eea;
+            background: #f0f7ff;
+        }
+        
+        .import-option-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .import-option-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .import-option-desc {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* Completion */
+        .completion-icon {
+            font-size: 80px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .completion-checklist {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .completion-checklist li {
+            padding: 12px;
+            background: #f9f9f9;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .completion-checklist li::before {
+            content: '✓';
+            background: #28a745;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+        
+        .ficos-badge {
+            text-align: center;
+            color: #999;
+            font-size: 11px;
+            margin-top: 20px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <div class="logo">
+            <div class="logo-text">FICOS</div>
+            <div class="logo-sub">Campaign Manager Setup Wizard</div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="progress-container">
+            <div class="progress-steps">
+                <div class="progress-line">
+                    <div class="progress-line-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-step active" data-step="1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Account</div>
+                </div>
+                <div class="progress-step" data-step="2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">Branding</div>
+                </div>
+                <div class="progress-step" data-step="3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Email</div>
+                </div>
+                <div class="progress-step" data-step="4">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Contacts</div>
+                </div>
+                <div class="progress-step" data-step="5">
+                    <div class="step-circle">5</div>
+                    <div class="step-label">Done</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 1: Owner Account -->
+        <div class="step-content active" data-step="1">
+            <h2>👤 Create Your Owner Account</h2>
+            <p class="step-description">You'll have full control over campaigns, users, and all settings.</p>
+            
+            <div class="info-box">
+                <strong>🔐 Owner Privileges</strong>
+                You can invite team members, oversee all activities, and manage everything in the app.
+            </div>
+            
+            <div class="form-group">
+                <label for="companyName">Company Name</label>
+                <input type="text" id="companyName" placeholder="e.g., FICOS Inc." required>
+                <div class="error" id="companyError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="ownerName">Your Full Name</label>
+                <input type="text" id="ownerName" placeholder="John Doe" required>
+                <div class="error" id="nameError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="ownerEmail">Email Address</label>
+                <input type="email" id="ownerEmail" placeholder="you@company.com" required>
+                <div class="error" id="emailError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="ownerPassword">Password</label>
+                <input type="password" id="ownerPassword" placeholder="At least 8 characters" required>
+                <div class="error" id="passwordError"></div>
+            </div>
+            
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" id="confirmPassword" placeholder="Re-enter password" required>
+                <div class="error" id="confirmError"></div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-primary" onclick="nextStep(1)">Next: Customize Branding →</button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Branding -->
+        <div class="step-content" data-step="2">
+            <h2>🎨 Customize Your Branding</h2>
+            <p class="step-description">Make the app yours! Add your logo and brand colors.</p>
+            
+            <div class="info-box">
+                <strong>✨ Why Brand It?</strong>
+                Your team and contacts will see your branding in emails and forms. Make it professional!
+            </div>
+            
+            <div class="form-group">
+                <label for="logoUpload">Company Logo <span class="optional">(Optional)</span></label>
+                <div class="image-upload-area" id="logoUploadArea" onclick="document.getElementById('logoUpload').click()">
+                    <div class="upload-icon">📷</div>
+                    <p><strong>Click to upload your logo</strong></p>
+                    <p style="font-size: 12px; color: #999; margin-top: 5px;">PNG or JPG, recommended 200x200px</p>
+                    <img id="logoPreview" class="image-preview" alt="Logo preview">
+                </div>
+                <input type="file" id="logoUpload" accept="image/png,image/jpeg,image/jpg" style="display: none;" onchange="handleLogoUpload(event)">
+            </div>
+            
+            <div class="form-group">
+                <label for="brandColor">Primary Brand Color</label>
+                <div class="color-picker-group">
+                    <div class="color-preview" id="colorPreview" style="background-color: #667eea;" onclick="document.getElementById('brandColor').click()"></div>
+                    <div class="color-input-wrapper">
+                        <input type="color" id="brandColor" value="#667eea" onchange="updateColorPreview()">
+                        <input type="text" id="brandColorHex" value="#667eea" placeholder="#667eea" onchange="updateColorFromHex()">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="warning-box">
+                <strong>⚠️ Remember:</strong> You cannot remove FICOS branding from the app per the license agreement. Your branding will appear alongside FICOS branding.
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-secondary" onclick="prevStep(2)">← Back</button>
+                <button class="btn-primary" onclick="nextStep(2)">Next: Email Setup →</button>
+            </div>
+        </div>
+        
+        <!-- Step 3: Email Configuration -->
+        <div class="step-content" data-step="3">
+            <h2>📧 Email Configuration</h2>
+            <p class="step-description">Connect your email provider to send campaigns. Don't worry, you can change this later!</p>
+            
+            <div class="info-box">
+                <strong>💡 Tip:</strong> Most email providers require an "App Password" instead of your regular password. Check your email provider's documentation for "SMTP settings".
+            </div>
+            
+            <div class="form-group">
+                <label for="smtpProvider">Email Provider</label>
+                <select id="smtpProvider" onchange="updateSmtpDefaults()">
+                    <option value="gmail">Gmail / Google Workspace</option>
+                    <option value="outlook">Outlook / Office 365</option>
+                    <option value="yahoo">Yahoo Mail</option>
+                    <option value="custom">Custom SMTP Server</option>
+                    <option value="skip">Skip for Now</option>
+                </select>
+            </div>
+            
+            <div id="smtpFields">
+                <div class="form-group">
+                    <label for="smtpHost">SMTP Host</label>
+                    <input type="text" id="smtpHost" placeholder="smtp.gmail.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="smtpPort">SMTP Port</label>
+                    <input type="number" id="smtpPort" placeholder="587" value="587">
+                </div>
+                
+                <div class="form-group">
+                    <label for="smtpUser">Email Address</label>
+                    <input type="email" id="smtpUser" placeholder="your-email@gmail.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="smtpPassword">Password / App Password</label>
+                    <input type="password" id="smtpPassword" placeholder="Your email password">
+                </div>
+                
+                <div class="form-group">
+                    <label for="fromName">From Name</label>
+                    <input type="text" id="fromName" placeholder="Your Company">
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-secondary" onclick="prevStep(3)">← Back</button>
+                <button class="btn-primary" onclick="nextStep(3)">Next: Import Contacts →</button>
+            </div>
+        </div>
+        
+        <!-- Step 4: Import Contacts -->
+        <div class="step-content" data-step="4">
+            <h2>📇 Import Your Contacts</h2>
+            <p class="step-description">Get started by importing your existing contacts. You can always add more later!</p>
+            
+            <div class="warning-box">
+                <strong>⚠️ Important:</strong> Only import contacts who have given you permission to email them. Sending spam violates the terms of service and applicable laws.
+            </div>
+            
+            <div class="import-options">
+                <div class="import-option" onclick="selectImportOption('csv')">
+                    <div class="import-option-icon">📄</div>
+                    <div class="import-option-title">Import CSV</div>
+                    <div class="import-option-desc">Upload a CSV file with your contacts</div>
+                </div>
+                
+                <div class="import-option" onclick="selectImportOption('device')">
+                    <div class="import-option-icon">📱</div>
+                    <div class="import-option-title">Device Contacts</div>
+                    <div class="import-option-desc">Import from your device contacts</div>
+                </div>
+                
+                <div class="import-option" onclick="selectImportOption('manual')">
+                    <div class="import-option-icon">✍️</div>
+                    <div class="import-option-title">Add Manually</div>
+                    <div class="import-option-desc">Start with a blank list</div>
+                </div>
+                
+                <div class="import-option" onclick="selectImportOption('skip')">
+                    <div class="import-option-icon">⏭️</div>
+                    <div class="import-option-title">Skip for Now</div>
+                    <div class="import-option-desc">Set up contacts later</div>
+                </div>
+            </div>
+            
+            <input type="file" id="csvUpload" accept=".csv" style="display: none;" onchange="handleCsvUpload(event)">
+            
+            <div class="info-box" style="margin-top: 20px;">
+                <strong>📚 CSV Format:</strong> Your CSV should have columns like: email, name, company, phone. The only required field is email.
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-secondary" onclick="prevStep(4)">← Back</button>
+                <button class="btn-primary" onclick="nextStep(4)">Complete Setup →</button>
+            </div>
+        </div>
+        
+        <!-- Step 5: Completion -->
+        <div class="step-content" data-step="5">
+            <div class="completion-icon">🎉</div>
+            <h2 style="text-align: center;">Setup Complete!</h2>
+            <p class="step-description" style="text-align: center;">Your FICOS Campaign Manager is ready to use. Here's what you can do now:</p>
+            
+            <ul class="completion-checklist">
+                <li>Create and send email campaigns to your contacts</li>
+                <li>Build custom forms to collect responses</li>
+                <li>Invite team members to collaborate</li>
+                <li>Track email opens, clicks, and responses</li>
+                <li>Customize your branding and settings anytime</li>
+                <li>Import more contacts as you grow</li>
+            </ul>
+            
+            <div class="info-box" style="margin-top: 20px;">
+                <strong>💡 Pro Tip:</strong> Check out the Help section in the dashboard for video tutorials and documentation!
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-primary" onclick="completeSetup()" style="flex: 1;">🚀 Go to Dashboard</button>
+            </div>
+        </div>
+        
+        <div class="ficos-badge">FICOS '26 | Licensed Software</div>
+    </div>
+    
+    <script>
+        let currentStep = 1;
+        let setupData = {
+            importOption: 'skip',
+            csvData: null,
+            logoData: null
+        };
+        
+        function nextStep(step) {
+            // Validate current step
+            if (!validateStep(step)) return;
+            
+            // Save step data
+            saveStepData(step);
+            
+            // Move to next step
+            currentStep = step + 1;
+            updateUI();
+        }
+        
+        function prevStep(step) {
+            currentStep = step - 1;
+            updateUI();
+        }
+        
+        function validateStep(step) {
+            // Clear errors
+            document.querySelectorAll('.error').forEach(el => el.classList.remove('show'));
+            
+            if (step === 1) {
+                const company = document.getElementById('companyName').value.trim();
+                const name = document.getElementById('ownerName').value.trim();
+                const email = document.getElementById('ownerEmail').value.trim();
+                const password = document.getElementById('ownerPassword').value;
+                const confirm = document.getElementById('confirmPassword').value;
+                
+                if (!company) {
+                    showError('companyError', 'Company name is required');
+                    return false;
+                }
+                if (!name) {
+                    showError('nameError', 'Your name is required');
+                    return false;
+                }
+                if (!email || !isValidEmail(email)) {
+                    showError('emailError', 'Valid email is required');
+                    return false;
+                }
+                if (password.length < 8) {
+                    showError('passwordError', 'Password must be at least 8 characters');
+                    return false;
+                }
+                if (password !== confirm) {
+                    showError('confirmError', 'Passwords do not match');
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        function saveStepData(step) {
+            if (step === 1) {
+                setupData.companyName = document.getElementById('companyName').value.trim();
+                setupData.name = document.getElementById('ownerName').value.trim();
+                setupData.email = document.getElementById('ownerEmail').value.trim();
+                setupData.password = document.getElementById('ownerPassword').value;
+            } else if (step === 2) {
+                setupData.brandColor = document.getElementById('brandColor').value;
+            } else if (step === 3) {
+                const provider = document.getElementById('smtpProvider').value;
+                if (provider !== 'skip') {
+                    setupData.smtp = {
+                        host: document.getElementById('smtpHost').value,
+                        port: document.getElementById('smtpPort').value,
+                        user: document.getElementById('smtpUser').value,
+                        password: document.getElementById('smtpPassword').value,
+                        fromName: document.getElementById('fromName').value
+                    };
+                }
+            }
+        }
+        
+        function updateUI() {
+            // Update steps
+            document.querySelectorAll('.progress-step').forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                if (index + 1 === currentStep) {
+                    step.classList.add('active');
+                } else if (index + 1 < currentStep) {
+                    step.classList.add('completed');
+                }
+            });
+            
+            // Update progress bar
+            const progress = ((currentStep - 1) / 4) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            
+            // Show current step content
+            document.querySelectorAll('.step-content').forEach((content, index) => {
+                content.classList.remove('active');
+                if (index + 1 === currentStep) {
+                    content.classList.add('active');
+                }
+            });
+        }
+        
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setupData.logoData = e.target.result;
+                document.getElementById('logoPreview').src = e.target.result;
+                document.getElementById('logoPreview').classList.add('show');
+                document.getElementById('logoUploadArea').classList.add('has-image');
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function updateColorPreview() {
+            const color = document.getElementById('brandColor').value;
+            document.getElementById('colorPreview').style.backgroundColor = color;
+            document.getElementById('brandColorHex').value = color;
+        }
+        
+        function updateColorFromHex() {
+            const hex = document.getElementById('brandColorHex').value;
+            if (/^#[0-9A-F]{6}$/i.test(hex)) {
+                document.getElementById('brandColor').value = hex;
+                document.getElementById('colorPreview').style.backgroundColor = hex;
+            }
+        }
+        
+        function updateSmtpDefaults() {
+            const provider = document.getElementById('smtpProvider').value;
+            const fields = document.getElementById('smtpFields');
+            
+            if (provider === 'skip') {
+                fields.style.display = 'none';
+                return;
+            }
+            
+            fields.style.display = 'block';
+            
+            const defaults = {
+                gmail: { host: 'smtp.gmail.com', port: 587 },
+                outlook: { host: 'smtp.office365.com', port: 587 },
+                yahoo: { host: 'smtp.mail.yahoo.com', port: 587 },
+                custom: { host: '', port: 587 }
+            };
+            
+            if (defaults[provider]) {
+                document.getElementById('smtpHost').value = defaults[provider].host;
+                document.getElementById('smtpPort').value = defaults[provider].port;
+            }
+        }
+        
+        function selectImportOption(option) {
+            setupData.importOption = option;
+            
+            // Update UI
+            document.querySelectorAll('.import-option').forEach(el => {
+                el.classList.remove('selected');
+            });
+            event.target.closest('.import-option').classList.add('selected');
+            
+            // Handle specific options
+            if (option === 'csv') {
+                document.getElementById('csvUpload').click();
+            } else if (option === 'device') {
+                requestDeviceContacts();
+            }
+        }
+        
+        function handleCsvUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setupData.csvData = e.target.result;
+                alert('CSV file loaded! Click "Complete Setup" to import your contacts.');
+            };
+            reader.readAsText(file);
+        }
+        
+        async function requestDeviceContacts() {
+            try {
+                const granted = await window.api.requestContactsPermission();
+                if (granted) {
+                    const contacts = await window.api.getDeviceContacts();
+                    setupData.deviceContacts = contacts;
+                    alert(`Found ${contacts.length} contacts from your device!`);
+                } else {
+                    alert('Permission denied. You can import contacts later from Settings.');
+                    setupData.importOption = 'skip';
+                }
+            } catch (error) {
+                console.error('Error accessing device contacts:', error);
+                alert('Could not access device contacts. You can import a CSV file instead.');
+                setupData.importOption = 'skip';
+            }
+        }
+        
+        async function completeSetup() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Setting up...';
+            
+            try {
+                const result = await window.api.completeSetup(setupData);
+                
+                if (result.success) {
+                    btn.textContent = '✓ Success!';
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1000);
+                } else {
+                    alert('Setup failed: ' + (result.error || 'Unknown error'));
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Go to Dashboard';
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                alert('An error occurred during setup. Please try again.');
+                btn.disabled = false;
+                btn.textContent = '🚀 Go to Dashboard';
+            }
+        }
+        
+        function showError(id, message) {
+            const errorEl = document.getElementById(id);
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+        }
+        
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+        
+        // Initialize
+        updateSmtpDefaults();
+    </script>
+</body>
+</html>

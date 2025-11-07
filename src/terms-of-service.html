@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms of Service - FICOS Campaign Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .tos-container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            animation: slideUp 0.5s ease-out;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo-text {
+            font-size: 42px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 3px;
+        }
+        
+        .logo-sub {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 26px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .scroll-content {
+            overflow-y: auto;
+            flex: 1;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            max-height: 400px;
+        }
+        
+        .scroll-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .scroll-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .scroll-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        .scroll-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        .tos-section {
+            margin-bottom: 25px;
+        }
+        
+        .tos-section h2 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .tos-section p, .tos-section ul {
+            color: #555;
+            line-height: 1.7;
+            font-size: 14px;
+        }
+        
+        .tos-section ul {
+            margin: 10px 0;
+            padding-left: 25px;
+        }
+        
+        .tos-section li {
+            margin: 8px 0;
+        }
+        
+        .important-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .important-box strong {
+            color: #856404;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        
+        .important-box p {
+            color: #856404;
+            margin: 5px 0;
+        }
+        
+        .danger-box {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .danger-box strong {
+            color: #721c24;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        
+        .danger-box p {
+            color: #721c24;
+            margin: 5px 0;
+        }
+        
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        
+        .success-box strong {
+            color: #155724;
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        
+        .success-box p {
+            color: #155724;
+            margin: 5px 0;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px solid #e0e0e0;
+            transition: border-color 0.3s;
+        }
+        
+        .checkbox-container.checked {
+            border-color: #667eea;
+            background: #f0f7ff;
+        }
+        
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        
+        .checkbox-label {
+            color: #333;
+            line-height: 1.6;
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-decline {
+            background: #e0e0e0;
+            color: #666;
+        }
+        
+        .btn-decline:hover {
+            background: #d0d0d0;
+        }
+        
+        .btn-accept {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-accept:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-accept:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .ficos-badge {
+            text-align: center;
+            color: #999;
+            font-size: 11px;
+            margin-top: 20px;
+            letter-spacing: 1px;
+        }
+        
+        .date-stamp {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .version-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="tos-container">
+        <div class="logo">
+            <div class="logo-text">FICOS</div>
+            <div class="logo-sub">Campaign Manager</div>
+        </div>
+        
+        <h1>📜 Software License & Terms of Service</h1>
+        <div class="date-stamp">Effective Date: November 7, 2025 <span class="version-badge">v3.0</span></div>
+        
+        <div class="scroll-content" id="tosContent">
+            <div class="success-box">
+                <strong>✨ Free Unlimited Use!</strong>
+                <p>This software is provided to you <strong>completely FREE</strong> with no usage limits, no monthly fees, and no hidden costs. Enjoy unlimited campaigns, contacts, and emails!</p>
+            </div>
+            
+            <div class="tos-section">
+                <h2>📖 1. License Grant</h2>
+                <p>FICOS hereby grants you a <strong>non-exclusive, non-transferable, revocable license</strong> to use the FICOS Campaign Manager software (the "Software") for your internal business purposes, subject to the terms and conditions set forth in this agreement.</p>
+            </div>
+            
+            <div class="tos-section">
+                <h2>🚫 2. Prohibited Actions</h2>
+                <p>You are <strong>expressly prohibited</strong> from:</p>
+                <ul>
+                    <li><strong>Redistributing</strong> the Software or any portion thereof in any form</li>
+                    <li><strong>Copying, duplicating, or replicating</strong> the source code or compiled binaries</li>
+                    <li><strong>Selling, licensing, or sublicensing</strong> the Software to third parties</li>
+                    <li><strong>Charging fees</strong> for access to or use of the Software</li>
+                    <li><strong>Removing, altering, or obscuring</strong> any FICOS branding, logos, or copyright notices</li>
+                    <li><strong>Removing or modifying</strong> the license information or terms of service</li>
+                    <li><strong>Reverse engineering, decompiling, or disassembling</strong> the Software (except where prohibited by law)</li>
+                    <li><strong>Creating derivative works</strong> based on the Software for commercial purposes</li>
+                    <li><strong>Using the Software</strong> to compete with FICOS or create competing products</li>
+                </ul>
+            </div>
+            
+            <div class="danger-box">
+                <strong>⚠️ Anti-Spam Policy (CRITICAL)</strong>
+                <p><strong>ZERO TOLERANCE:</strong> Using this Software to send unsolicited commercial email (SPAM) is a <strong>direct violation</strong> of these Terms and is <strong>PROHIBITED</strong>.</p>
+                <p><strong>You must comply with:</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>CAN-SPAM Act (United States)</li>
+                    <li>GDPR (European Union)</li>
+                    <li>CASL (Canada)</li>
+                    <li>All applicable anti-spam laws in your jurisdiction</li>
+                </ul>
+                <p style="margin-top: 10px;"><strong>Violations will result in immediate license termination and may subject you to legal action.</strong></p>
+            </div>
+            
+            <div class="tos-section">
+                <h2>📧 3. Acceptable Use Requirements</h2>
+                <p>When using the Software, you agree to:</p>
+                <ul>
+                    <li>Only send emails to recipients who have <strong>explicitly opted in</strong> to receive communications from you</li>
+                    <li>Include a clear and functional <strong>unsubscribe mechanism</strong> in all emails</li>
+                    <li>Honor all unsubscribe requests <strong>within 10 business days</strong></li>
+                    <li>Accurately identify yourself as the sender in all emails</li>
+                    <li>Use accurate subject lines that reflect email content</li>
+                    <li>Include your valid physical postal address in all commercial emails</li>
+                    <li>Not send emails to purchased, rented, or third-party email lists without verified consent</li>
+                    <li>Not send emails containing malware, viruses, or malicious content</li>
+                    <li>Not use the Software to harass, abuse, or harm others</li>
+                </ul>
+            </div>
+            
+            <div class="tos-section">
+                <h2>⚖️ 4. Intellectual Property</h2>
+                <p>The Software, including all code, designs, trademarks, and documentation, is the <strong>exclusive property of FICOS</strong> and is protected by:</p>
+                <ul>
+                    <li>Copyright laws</li>
+                    <li>Trademark laws</li>
+                    <li>Trade secret laws</li>
+                    <li>Other intellectual property rights</li>
+                </ul>
+                <p>This license does not grant you any ownership rights in the Software. All rights not expressly granted herein are reserved by FICOS.</p>
+            </div>
+            
+            <div class="tos-section">
+                <h2>🔄 5. License Termination</h2>
+                <p>FICOS reserves the right to <strong>terminate this license at any time</strong> for any reason, including but not limited to:</p>
+                <ul>
+                    <li><strong>Violation of these Terms</strong> - Immediate termination without notice</li>
+                    <li><strong>Spam/abuse</strong> - Immediate termination without notice</li>
+                    <li><strong>Discretionary termination</strong> - With 30 days' advance written notice</li>
+                </ul>
+                <p>Upon termination, you must:</p>
+                <ul>
+                    <li>Immediately cease all use of the Software</li>
+                    <li>Uninstall and delete all copies of the Software</li>
+                    <li>Destroy any derivative data or configurations</li>
+                </ul>
+            </div>
+            
+            <div class="tos-section">
+                <h2>📬 6. Notice Procedures</h2>
+                <p>All notices regarding license termination or modifications to these Terms will be provided via:</p>
+                <ul>
+                    <li>Email to the address provided during setup</li>
+                    <li>In-app notifications within the Software</li>
+                    <li>Official FICOS website announcements</li>
+                </ul>
+                <p>It is your responsibility to maintain a current email address and check for notices regularly.</p>
+            </div>
+            
+            <div class="important-box">
+                <strong>⚠️ 7. Disclaimer of Warranties</strong>
+                <p>THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO:</p>
+                <ul style="margin-top: 10px;">
+                    <li>Warranties of merchantability</li>
+                    <li>Fitness for a particular purpose</li>
+                    <li>Non-infringement</li>
+                    <li>Uninterrupted or error-free operation</li>
+                    <li>Accuracy or reliability of results</li>
+                </ul>
+                <p style="margin-top: 10px;">FICOS does not warrant that the Software will meet your requirements or that operation will be uninterrupted or error-free.</p>
+            </div>
+            
+            <div class="danger-box">
+                <strong>🛡️ 8. Limitation of Liability</strong>
+                <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW, FICOS SHALL NOT BE LIABLE FOR:</p>
+                <ul style="margin-top: 10px;">
+                    <li>Any indirect, incidental, special, consequential, or punitive damages</li>
+                    <li>Loss of profits, revenue, data, or use</li>
+                    <li>Business interruption</li>
+                    <li>Damages arising from your use or inability to use the Software</li>
+                    <li>Damages arising from spam violations or legal actions against you</li>
+                    <li>Any third-party claims arising from your use of the Software</li>
+                </ul>
+                <p style="margin-top: 10px;"><strong>IN NO EVENT SHALL FICOS'S TOTAL LIABILITY EXCEED $0 (ZERO DOLLARS), AS THIS SOFTWARE IS PROVIDED FREE OF CHARGE.</strong></p>
+            </div>
+            
+            <div class="tos-section">
+                <h2>🤝 9. Indemnification</h2>
+                <p>You agree to <strong>indemnify, defend, and hold harmless</strong> FICOS, its officers, directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including reasonable attorneys' fees) arising from:</p>
+                <ul>
+                    <li>Your use or misuse of the Software</li>
+                    <li>Your violation of these Terms</li>
+                    <li>Your violation of any applicable laws or regulations</li>
+                    <li>Your spam or email marketing activities</li>
+                    <li>Any third-party claims related to your campaigns or contacts</li>
+                </ul>
+            </div>
+            
+            <div class="tos-section">
+                <h2>🌍 10. Data Privacy & Security</h2>
+                <p>The Software operates <strong>entirely on your local system</strong>. FICOS:</p>
+                <ul>
+                    <li>Does NOT collect, store, or transmit your contact data</li>
+                    <li>Does NOT have access to your campaigns or email content</li>
+                    <li>Does NOT track your usage or activities</li>
+                    <li>Is NOT responsible for your data security practices</li>
+                </ul>
+                <p><strong>You are solely responsible for:</strong></p>
+                <ul>
+                    <li>Securing your data and database backups</li>
+                    <li>Compliance with data protection laws (GDPR, CCPA, etc.)</li>
+                    <li>Obtaining proper consent from your contacts</li>
+                    <li>Protecting sensitive information</li>
+                </ul>
+            </div>
+            
+            <div class="tos-section">
+                <h2>📝 11. Updates & Modifications</h2>
+                <p>FICOS reserves the right to:</p>
+                <ul>
+                    <li>Update or modify the Software at any time</li>
+                    <li>Change these Terms with or without notice</li>
+                    <li>Discontinue features or support</li>
+                </ul>
+                <p>Continued use of the Software after any modifications constitutes acceptance of the modified Terms.</p>
+            </div>
+            
+            <div class="tos-section">
+                <h2>⚖️ 12. Governing Law & Dispute Resolution</h2>
+                <p>These Terms shall be governed by and construed in accordance with the laws of the jurisdiction where FICOS is located, without regard to conflict of law principles.</p>
+                <p>Any disputes arising from these Terms or use of the Software shall be resolved through:</p>
+                <ul>
+                    <li>Good faith negotiation between parties</li>
+                    <li>Binding arbitration if negotiation fails</li>
+                    <li>Courts of competent jurisdiction as a last resort</li>
+                </ul>
+            </div>
+            
+            <div class="tos-section">
+                <h2>✂️ 13. Severability</h2>
+                <p>If any provision of these Terms is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary, and the remaining provisions shall remain in full force and effect.</p>
+            </div>
+            
+            <div class="tos-section">
+                <h2>📄 14. Entire Agreement</h2>
+                <p>These Terms constitute the entire agreement between you and FICOS regarding the Software and supersede all prior agreements, understandings, or representations.</p>
+            </div>
+            
+            <div class="success-box">
+                <strong>✅ 15. Your Agreement</strong>
+                <p>By clicking "I Accept" below, you acknowledge that you have:</p>
+                <ul style="margin-top: 10px;">
+                    <li><strong>Read and understood</strong> these Terms in their entirety</li>
+                    <li><strong>Agree to be bound</strong> by all terms and conditions</li>
+                    <li><strong>Acknowledge</strong> that violations may result in license termination</li>
+                    <li><strong>Accept full responsibility</strong> for your use of the Software</li>
+                    <li><strong>Understand</strong> that FICOS is not liable for any damages</li>
+                    <li><strong>Will comply</strong> with all anti-spam laws and regulations</li>
+                </ul>
+            </div>
+            
+            <div class="tos-section">
+                <h2>📧 Contact Information</h2>
+                <p>For questions about these Terms or the Software, contact FICOS at:</p>
+                <p style="margin-top: 10px;">
+                    <strong>Email:</strong> legal@ficos.com<br>
+                    <strong>Website:</strong> www.ficos.com
+                </p>
+            </div>
+        </div>
+        
+        <div class="checkbox-container" id="checkboxContainer">
+            <input type="checkbox" id="agreeCheckbox">
+            <label for="agreeCheckbox" class="checkbox-label">
+                <strong>I have read and agree to the Software License & Terms of Service.</strong> I understand that I cannot redistribute this software, remove FICOS branding, or use it for spam. I acknowledge that FICOS can revoke my license with 30 days' notice and is not liable for any damages.
+            </label>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-decline" onclick="declineTerms()">❌ I Decline</button>
+            <button class="btn-accept" id="acceptBtn" disabled onclick="acceptTerms()">✅ I Accept & Continue</button>
+        </div>
+        
+        <div class="ficos-badge">© 2025 FICOS | All Rights Reserved | Licensed Software</div>
+    </div>
+    
+    <script>
+        const checkbox = document.getElementById('agreeCheckbox');
+        const acceptBtn = document.getElementById('acceptBtn');
+        const checkboxContainer = document.getElementById('checkboxContainer');
+        const tosContent = document.getElementById('tosContent');
+        
+        // Enable accept button only when checkbox is checked
+        checkbox.addEventListener('change', () => {
+            acceptBtn.disabled = !checkbox.checked;
+            if (checkbox.checked) {
+                checkboxContainer.classList.add('checked');
+            } else {
+                checkboxContainer.classList.remove('checked');
+            }
+        });
+        
+        // Also enable clicking the label
+        checkboxContainer.addEventListener('click', (e) => {
+            if (e.target !== checkbox) {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+        
+        function acceptTerms() {
+            if (!checkbox.checked) return;
+            
+            // Store acceptance in localStorage
+            localStorage.setItem('ficos_tos_accepted', 'true');
+            localStorage.setItem('ficos_tos_accepted_date', new Date().toISOString());
+            localStorage.setItem('ficos_tos_version', '3.0');
+            
+            // Redirect to setup
+            window.location.href = 'setup-wizard.html';
+        }
+        
+        function declineTerms() {
+            if (confirm('If you decline these terms, the application will close. Are you sure?')) {
+                // Close the application
+                window.api.quitApp();
+            }
+        }
+        
+        // Check if user has already accepted
+        window.addEventListener('DOMContentLoaded', () => {
+            const accepted = localStorage.getItem('ficos_tos_accepted');
+            const version = localStorage.getItem('ficos_tos_version');
+            
+            // If accepted and version matches, skip to next screen
+            if (accepted === 'true' && version === '3.0') {
+                window.location.href = 'setup-wizard.html';
+            }
+        });
+    </script>
+</body>
+</html>

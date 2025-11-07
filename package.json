@@ -1,0 +1,67 @@
+{
+  "name": "ficos-campaign-manager",
+  "version": "3.1.0",
+  "description": "Self-contained email campaign and form management desktop application",
+  "main": "main.js",
+  "author": "FICOS",
+  "license": "Proprietary",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.ficos.campaignmanager",
+    "productName": "FICOS Campaign Manager",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*",
+      "!**/*.ts",
+      "!*.map",
+      "!dist",
+      "!node_modules",
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.business"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.png",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.2.2",
+    "bcryptjs": "^2.4.3",
+    "electron-store": "^8.1.0",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.7",
+    "uuid": "^9.0.1",
+    "speakeasy": "^2.0.0",
+    "qrcode": "^1.5.3",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  }
+}

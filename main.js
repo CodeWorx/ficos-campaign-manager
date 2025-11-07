@@ -1,0 +1,1300 @@
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const path = require('path');
+const express = require('express');
+const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
+const Store = require('electron-store');
+const { v4: uuidv4 } = require('uuid');
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+// Initialize electron-store for app settings
+const store = new Store();
+
+let mainWindow;
+let db;
+let server;
+
+// Initialize SQLite database
+function initDatabase() {
+  const dbPath = path.join(app.getPath('userData'), 'ficos.db');
+  db = new Database(dbPath);
+  
+  // Create tables
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL,
+      twofa_enabled INTEGER DEFAULT 0,
+      twofa_secret TEXT,
+      biometric_enabled INTEGER DEFAULT 0,
+      biometric_public_key TEXT,
+      recovery_email TEXT,
+      password_reset_token TEXT,
+      password_reset_expires TEXT,
+      last_login TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      form_html TEXT NOT NULL,
+      status TEXT DEFAULT 'DRAFT',
+      created_by TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      sent_at TEXT,
+      scheduled_for TEXT,
+      subject_line TEXT,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS contacts (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      company TEXT,
+      phone TEXT,
+      tags TEXT,
+      custom_fields TEXT,
+      subscribed INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS campaign_emails (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL,
+      contact_id TEXT NOT NULL,
+      sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      opened INTEGER DEFAULT 0,
+      opened_at TEXT,
+      clicked INTEGER DEFAULT 0,
+      clicked_at TEXT,
+      bounced INTEGER DEFAULT 0,
+      unsubscribed INTEGER DEFAULT 0,
+      FOREIGN KEY (campaign_id) REFERENCES campaigns(id),
+      FOREIGN KEY (contact_id) REFERENCES contacts(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS form_responses (
+      id TEXT PRIMARY KEY,
+      campaign_id TEXT NOT NULL,
+      contact_email TEXT NOT NULL,
+      response_data TEXT NOT NULL,
+      submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      ip_address TEXT,
+      FOREIGN KEY (campaign_id) REFERENCES campaigns(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS email_configs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      smtp_host TEXT NOT NULL,
+      smtp_port INTEGER NOT NULL,
+      smtp_user TEXT NOT NULL,
+      smtp_password TEXT NOT NULL,
+      from_email TEXT NOT NULL,
+      from_name TEXT NOT NULL,
+      is_default INTEGER DEFAULT 0,
+      daily_limit INTEGER DEFAULT 500,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS campaign_permissions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      campaign_id TEXT NOT NULL,
+      can_view INTEGER DEFAULT 1,
+      can_edit INTEGER DEFAULT 0,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (campaign_id) REFERENCES campaigns(id),
+      UNIQUE(user_id, campaign_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS email_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      html_content TEXT NOT NULL,
+      created_by TEXT NOT NULL,
+      is_public INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS contact_lists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      created_by TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS contact_list_members (
+      id TEXT PRIMARY KEY,
+      list_id TEXT NOT NULL,
+      contact_id TEXT NOT NULL,
+      added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (list_id) REFERENCES contact_lists(id),
+      FOREIGN KEY (contact_id) REFERENCES contacts(id),
+      UNIQUE(list_id, contact_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id TEXT,
+      details TEXT,
+      ip_address TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_invitations (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      role TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      invited_by TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      accepted INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (invited_by) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS device_contacts (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT,
+      phone TEXT,
+      imported_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS company_settings (
+      id TEXT PRIMARY KEY DEFAULT 'default',
+      company_name TEXT,
+      company_logo TEXT,
+      brand_color TEXT DEFAULT '#667eea',
+      tos_accepted INTEGER DEFAULT 0,
+      tos_accepted_date TEXT,
+      tos_version TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  console.log('Database initialized at:', dbPath);
+}
+
+// Check if setup is needed
+function needsSetup() {
+  const stmt = db.prepare('SELECT COUNT(*) as count FROM users');
+  const result = stmt.get();
+  return result.count === 0;
+}
+
+// Check if TOS accepted
+function isTosAccepted() {
+  try {
+    const stmt = db.prepare('SELECT tos_accepted, tos_version FROM company_settings WHERE id = "default"');
+    const result = stmt.get();
+    return result && result.tos_accepted === 1 && result.tos_version === '3.0';
+  } catch (error) {
+    return false;
+  }
+}
+
+// Create main window
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    icon: path.join(__dirname, 'build/icon.png'),
+    show: false
+  });
+
+  // Show splash screen
+  mainWindow.loadFile('src/splash.html');
+  
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    
+    // After 2 seconds, check navigation path
+    setTimeout(() => {
+      if (!isTosAccepted()) {
+        // Must accept TOS first
+        mainWindow.loadFile('src/terms-of-service.html');
+      } else if (needsSetup()) {
+        // Setup wizard for new installations
+        mainWindow.loadFile('src/setup-wizard.html');
+      } else {
+        // Normal login
+        mainWindow.loadFile('src/login.html');
+      }
+    }, 2000);
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+}
+
+// IPC Handlers
+
+// Setup: Create owner account
+ipcMain.handle('setup-owner', async (event, data) => {
+  try {
+    const { name, email, password, companyName } = data;
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create owner
+    const userId = uuidv4();
+    const stmt = db.prepare('INSERT INTO users (id, email, name, password, role) VALUES (?, ?, ?, ?, ?)');
+    stmt.run(userId, email, name, hashedPassword, 'OWNER');
+    
+    // Save company settings
+    store.set('company', {
+      name: companyName,
+      setupComplete: true
+    });
+    
+    return { success: true, userId };
+  } catch (error) {
+    console.error('Setup error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Login
+ipcMain.handle('login', async (event, data) => {
+  try {
+    const { email, password, twoFactorCode } = data;
+    
+    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+    const user = stmt.get(email);
+    
+    if (!user) {
+      return { success: false, error: 'Invalid credentials' };
+    }
+    
+    const validPassword = await bcrypt.compare(password, user.password);
+    
+    if (!validPassword) {
+      return { success: false, error: 'Invalid credentials' };
+    }
+    
+    // Check 2FA if enabled
+    if (user.twofa_enabled && user.twofa_secret) {
+      if (!twoFactorCode) {
+        return { success: false, requiresTwoFactor: true };
+      }
+      
+      const speakeasy = require('speakeasy');
+      const verified = speakeasy.totp.verify({
+        secret: user.twofa_secret,
+        encoding: 'base32',
+        token: twoFactorCode,
+        window: 2
+      });
+      
+      if (!verified) {
+        return { success: false, error: 'Invalid 2FA code' };
+      }
+    }
+    
+    // Update last login
+    db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
+    
+    // Store session
+    store.set('session', {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    });
+    
+    // Log audit
+    logAudit(user.id, 'LOGIN', 'user', user.id, 'User logged in');
+    
+    return { 
+      success: true, 
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    };
+  } catch (error) {
+    console.error('Login error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 2FA Setup
+ipcMain.handle('setup-2fa', async (event, userId) => {
+  try {
+    const speakeasy = require('speakeasy');
+    const qrcode = require('qrcode');
+    
+    const secret = speakeasy.generateSecret({
+      name: 'FICOS Campaign Manager',
+      length: 32
+    });
+    
+    // Generate QR code
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+    
+    // Save secret temporarily (not enabled until verified)
+    db.prepare('UPDATE users SET twofa_secret = ? WHERE id = ?').run(secret.base32, userId);
+    
+    return {
+      success: true,
+      secret: secret.base32,
+      qrCode: qrCodeUrl
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Verify and Enable 2FA
+ipcMain.handle('enable-2fa', async (event, data) => {
+  try {
+    const { userId, token } = data;
+    const speakeasy = require('speakeasy');
+    
+    const stmt = db.prepare('SELECT twofa_secret FROM users WHERE id = ?');
+    const user = stmt.get(userId);
+    
+    if (!user || !user.twofa_secret) {
+      return { success: false, error: '2FA not set up' };
+    }
+    
+    const verified = speakeasy.totp.verify({
+      secret: user.twofa_secret,
+      encoding: 'base32',
+      token: token,
+      window: 2
+    });
+    
+    if (!verified) {
+      return { success: false, error: 'Invalid code' };
+    }
+    
+    // Enable 2FA
+    db.prepare('UPDATE users SET twofa_enabled = 1 WHERE id = ?').run(userId);
+    logAudit(userId, 'ENABLE_2FA', 'user', userId, '2FA enabled');
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Disable 2FA
+ipcMain.handle('disable-2fa', async (event, data) => {
+  try {
+    const { userId, password } = data;
+    
+    const stmt = db.prepare('SELECT password FROM users WHERE id = ?');
+    const user = stmt.get(userId);
+    
+    const validPassword = await bcrypt.compare(password, user.password);
+    
+    if (!validPassword) {
+      return { success: false, error: 'Invalid password' };
+    }
+    
+    db.prepare('UPDATE users SET twofa_enabled = 0, twofa_secret = NULL WHERE id = ?').run(userId);
+    logAudit(userId, 'DISABLE_2FA', 'user', userId, '2FA disabled');
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Request Password Reset
+ipcMain.handle('request-password-reset', async (event, email) => {
+  try {
+    const stmt = db.prepare('SELECT id, recovery_email FROM users WHERE email = ?');
+    const user = stmt.get(email);
+    
+    if (!user) {
+      // Don't reveal if user exists
+      return { success: true, message: 'If account exists, reset email sent' };
+    }
+    
+    const resetToken = uuidv4();
+    const expires = new Date(Date.now() + 3600000).toISOString(); // 1 hour
+    
+    db.prepare('UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?')
+      .run(resetToken, expires, user.id);
+    
+    // In a real app, send email here
+    // For now, show token in console (dev mode)
+    console.log('Password reset token:', resetToken);
+    
+    logAudit(user.id, 'PASSWORD_RESET_REQUEST', 'user', user.id, 'Password reset requested');
+    
+    return { 
+      success: true, 
+      message: 'Reset instructions sent',
+      devToken: resetToken // Remove in production
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Reset Password with Token
+ipcMain.handle('reset-password', async (event, data) => {
+  try {
+    const { token, newPassword } = data;
+    
+    const stmt = db.prepare('SELECT * FROM users WHERE password_reset_token = ? AND password_reset_expires > ?');
+    const user = stmt.get(token, new Date().toISOString());
+    
+    if (!user) {
+      return { success: false, error: 'Invalid or expired reset token' };
+    }
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    db.prepare('UPDATE users SET password = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?')
+      .run(hashedPassword, user.id);
+    
+    logAudit(user.id, 'PASSWORD_RESET', 'user', user.id, 'Password reset completed');
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Enable Biometric
+ipcMain.handle('enable-biometric', async (event, data) => {
+  try {
+    const { userId, publicKey } = data;
+    
+    db.prepare('UPDATE users SET biometric_enabled = 1, biometric_public_key = ? WHERE id = ?')
+      .run(publicKey, userId);
+    
+    logAudit(userId, 'ENABLE_BIOMETRIC', 'user', userId, 'Biometric authentication enabled');
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Verify Biometric
+ipcMain.handle('verify-biometric', async (event, data) => {
+  try {
+    const { email, signature } = data;
+    
+    const stmt = db.prepare('SELECT * FROM users WHERE email = ? AND biometric_enabled = 1');
+    const user = stmt.get(email);
+    
+    if (!user || !user.biometric_public_key) {
+      return { success: false, error: 'Biometric not set up' };
+    }
+    
+    // In production, verify signature with stored public key
+    // For now, simplified check
+    if (signature && signature.length > 0) {
+      store.set('session', {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      });
+      
+      db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
+      logAudit(user.id, 'BIOMETRIC_LOGIN', 'user', user.id, 'Logged in via biometric');
+      
+      return { 
+        success: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
+      };
+    }
+    
+    return { success: false, error: 'Biometric verification failed' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get current session
+ipcMain.handle('get-session', () => {
+  return store.get('session', null);
+});
+
+// Logout
+ipcMain.handle('logout', () => {
+  store.delete('session');
+  return { success: true };
+});
+
+// Get company settings
+ipcMain.handle('get-company-settings', () => {
+  return store.get('company', { name: 'FICOS', setupComplete: false });
+});
+
+// Campaign operations
+ipcMain.handle('get-campaigns', (event, userId) => {
+  const stmt = db.prepare(`
+    SELECT c.*, u.name as creator_name 
+    FROM campaigns c
+    LEFT JOIN users u ON c.created_by = u.id
+    WHERE c.created_by = ? OR EXISTS (
+      SELECT 1 FROM campaign_permissions cp 
+      WHERE cp.campaign_id = c.id AND cp.user_id = ? AND cp.can_view = 1
+    )
+    ORDER BY c.created_at DESC
+  `);
+  return stmt.all(userId, userId);
+});
+
+ipcMain.handle('create-campaign', (event, data) => {
+  const { name, description, formHtml, userId } = data;
+  const id = uuidv4();
+  
+  const stmt = db.prepare('INSERT INTO campaigns (id, name, description, form_html, created_by) VALUES (?, ?, ?, ?, ?)');
+  stmt.run(id, name, description || '', formHtml, userId);
+  
+  return { success: true, id };
+});
+
+ipcMain.handle('get-campaign', (event, id) => {
+  const stmt = db.prepare('SELECT * FROM campaigns WHERE id = ?');
+  return stmt.get(id);
+});
+
+ipcMain.handle('update-campaign', (event, data) => {
+  const { id, name, description, formHtml, status } = data;
+  
+  const stmt = db.prepare('UPDATE campaigns SET name = ?, description = ?, form_html = ?, status = ? WHERE id = ?');
+  stmt.run(name, description, formHtml, status, id);
+  
+  return { success: true };
+});
+
+ipcMain.handle('delete-campaign', (event, id) => {
+  const stmt = db.prepare('DELETE FROM campaigns WHERE id = ?');
+  stmt.run(id);
+  return { success: true };
+});
+
+// Contact operations
+ipcMain.handle('get-contacts', () => {
+  const stmt = db.prepare('SELECT * FROM contacts ORDER BY created_at DESC');
+  return stmt.all();
+});
+
+ipcMain.handle('create-contact', (event, data) => {
+  const { email, firstName, lastName, company, phone, tags } = data;
+  const id = uuidv4();
+  
+  const stmt = db.prepare('INSERT INTO contacts (id, email, first_name, last_name, company, phone, tags) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  stmt.run(id, email, firstName || '', lastName || '', company || '', phone || '', tags || '');
+  
+  return { success: true, id };
+});
+
+ipcMain.handle('import-contacts', (event, contacts) => {
+  const stmt = db.prepare('INSERT OR IGNORE INTO contacts (id, email, first_name, last_name, company, phone) VALUES (?, ?, ?, ?, ?, ?)');
+  
+  const transaction = db.transaction((contactList) => {
+    for (const contact of contactList) {
+      stmt.run(
+        uuidv4(),
+        contact.email,
+        contact.firstName || '',
+        contact.lastName || '',
+        contact.company || '',
+        contact.phone || ''
+      );
+    }
+  });
+  
+  transaction(contacts);
+  return { success: true, count: contacts.length };
+});
+
+ipcMain.handle('delete-contact', (event, id) => {
+  const stmt = db.prepare('DELETE FROM contacts WHERE id = ?');
+  stmt.run(id);
+  return { success: true };
+});
+
+// Email config operations
+ipcMain.handle('get-email-configs', () => {
+  const stmt = db.prepare('SELECT * FROM email_configs ORDER BY is_default DESC, created_at DESC');
+  return stmt.all();
+});
+
+ipcMain.handle('save-email-config', (event, data) => {
+  const { name, smtpHost, smtpPort, smtpUser, smtpPassword, fromEmail, fromName, isDefault } = data;
+  const id = uuidv4();
+  
+  // If setting as default, unset other defaults
+  if (isDefault) {
+    db.prepare('UPDATE email_configs SET is_default = 0').run();
+  }
+  
+  const stmt = db.prepare('INSERT INTO email_configs (id, name, smtp_host, smtp_port, smtp_user, smtp_password, from_email, from_name, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  stmt.run(id, name, smtpHost, smtpPort, smtpUser, smtpPassword, fromEmail, fromName, isDefault ? 1 : 0);
+  
+  return { success: true, id };
+});
+
+// Form response operations
+ipcMain.handle('get-responses', (event, campaignId) => {
+  const stmt = db.prepare('SELECT * FROM form_responses WHERE campaign_id = ? ORDER BY submitted_at DESC');
+  return stmt.all(campaignId);
+});
+
+ipcMain.handle('save-response', (event, data) => {
+  const { campaignId, contactEmail, responseData, ipAddress } = data;
+  const id = uuidv4();
+  
+  const stmt = db.prepare('INSERT INTO form_responses (id, campaign_id, contact_email, response_data, ip_address) VALUES (?, ?, ?, ?, ?)');
+  stmt.run(id, campaignId, contactEmail, JSON.stringify(responseData), ipAddress || '');
+  
+  return { success: true, id };
+});
+
+// Campaign scheduling
+ipcMain.handle('schedule-campaign', async (event, data) => {
+  try {
+    const { campaignId, scheduledFor } = data;
+    
+    db.prepare('UPDATE campaigns SET scheduled_for = ?, status = ? WHERE id = ?')
+      .run(scheduledFor, 'SCHEDULED', campaignId);
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Send campaign emails
+ipcMain.handle('send-campaign', async (event, data) => {
+  try {
+    const { campaignId, contactIds, emailConfigId } = data;
+    const nodemailer = require('nodemailer');
+    
+    // Get campaign
+    const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(campaignId);
+    if (!campaign) {
+      return { success: false, error: 'Campaign not found' };
+    }
+    
+    // Get email config
+    let emailConfig;
+    if (emailConfigId) {
+      emailConfig = db.prepare('SELECT * FROM email_configs WHERE id = ?').get(emailConfigId);
+    } else {
+      emailConfig = db.prepare('SELECT * FROM email_configs WHERE is_default = 1').get();
+    }
+    
+    if (!emailConfig) {
+      return { success: false, error: 'No email configuration found' };
+    }
+    
+    // Create transporter
+    const transporter = nodemailer.createTransport({
+      host: emailConfig.smtp_host,
+      port: emailConfig.smtp_port,
+      secure: emailConfig.smtp_port === 465,
+      auth: {
+        user: emailConfig.smtp_user,
+        pass: emailConfig.smtp_password
+      }
+    });
+    
+    // Get contacts
+    const contacts = db.prepare('SELECT * FROM contacts WHERE id IN (' + contactIds.map(() => '?').join(',') + ')')
+      .all(...contactIds);
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const contact of contacts) {
+      try {
+        const formUrl = `https://localhost:3000/form/${campaignId}/${contact.id}`;
+        
+        const mailOptions = {
+          from: `"${emailConfig.from_name}" <${emailConfig.from_email}>`,
+          to: contact.email,
+          subject: campaign.subject_line || campaign.name,
+          html: `
+            <p>Hello ${contact.first_name || ''},</p>
+            <p>Please complete the following form:</p>
+            <p><a href="${formUrl}">Click here to open the form</a></p>
+            <br>
+            <div>${campaign.form_html}</div>
+          `
+        };
+        
+        await transporter.sendMail(mailOptions);
+        
+        // Record email sent
+        db.prepare('INSERT INTO campaign_emails (id, campaign_id, contact_id) VALUES (?, ?, ?)')
+          .run(uuidv4(), campaignId, contact.id);
+        
+        successCount++;
+      } catch (error) {
+        console.error('Failed to send to:', contact.email, error);
+        failCount++;
+      }
+    }
+    
+    // Update campaign status
+    db.prepare('UPDATE campaigns SET status = ?, sent_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run('SENT', campaignId);
+    
+    return { 
+      success: true, 
+      sent: successCount,
+      failed: failCount
+    };
+  } catch (error) {
+    console.error('Send campaign error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// CSV Import
+ipcMain.handle('import-contacts-csv', async (event, csvData) => {
+  try {
+    const Papa = require('papaparse');
+    
+    const results = Papa.parse(csvData, {
+      header: true,
+      skipEmptyLines: true
+    });
+    
+    if (!results.data || results.data.length === 0) {
+      return { success: false, error: 'No data found in CSV' };
+    }
+    
+    const stmt = db.prepare('INSERT OR IGNORE INTO contacts (id, email, first_name, last_name, company, phone) VALUES (?, ?, ?, ?, ?, ?)');
+    
+    let imported = 0;
+    let skipped = 0;
+    
+    const transaction = db.transaction((rows) => {
+      for (const row of rows) {
+        if (!row.email) {
+          skipped++;
+          continue;
+        }
+        
+        try {
+          stmt.run(
+            uuidv4(),
+            row.email,
+            row.first_name || row.firstName || '',
+            row.last_name || row.lastName || '',
+            row.company || '',
+            row.phone || ''
+          );
+          imported++;
+        } catch (error) {
+          skipped++;
+        }
+      }
+    });
+    
+    transaction(results.data);
+    
+    return { success: true, imported, skipped };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Email Templates
+ipcMain.handle('get-email-templates', (event, userId) => {
+  const stmt = db.prepare('SELECT * FROM email_templates WHERE created_by = ? OR is_public = 1 ORDER BY created_at DESC');
+  return stmt.all(userId);
+});
+
+ipcMain.handle('create-email-template', (event, data) => {
+  const { name, subject, htmlContent, userId, isPublic } = data;
+  const id = uuidv4();
+  
+  const stmt = db.prepare('INSERT INTO email_templates (id, name, subject, html_content, created_by, is_public) VALUES (?, ?, ?, ?, ?, ?)');
+  stmt.run(id, name, subject, htmlContent, userId, isPublic ? 1 : 0);
+  
+  logAudit(userId, 'CREATE_TEMPLATE', 'email_template', id, `Created template: ${name}`);
+  
+  return { success: true, id };
+});
+
+ipcMain.handle('delete-email-template', (event, id) => {
+  const stmt = db.prepare('DELETE FROM email_templates WHERE id = ?');
+  stmt.run(id);
+  return { success: true };
+});
+
+// Contact Lists
+ipcMain.handle('get-contact-lists', (event, userId) => {
+  const stmt = db.prepare(`
+    SELECT cl.*, COUNT(clm.contact_id) as contact_count 
+    FROM contact_lists cl 
+    LEFT JOIN contact_list_members clm ON cl.id = clm.list_id 
+    WHERE cl.created_by = ? 
+    GROUP BY cl.id
+    ORDER BY cl.created_at DESC
+  `);
+  return stmt.all(userId);
+});
+
+ipcMain.handle('create-contact-list', (event, data) => {
+  const { name, description, userId } = data;
+  const id = uuidv4();
+  
+  const stmt = db.prepare('INSERT INTO contact_lists (id, name, description, created_by) VALUES (?, ?, ?, ?)');
+  stmt.run(id, name, description, userId);
+  
+  return { success: true, id };
+});
+
+ipcMain.handle('add-contacts-to-list', (event, data) => {
+  const { listId, contactIds } = data;
+  
+  const stmt = db.prepare('INSERT OR IGNORE INTO contact_list_members (id, list_id, contact_id) VALUES (?, ?, ?)');
+  
+  const transaction = db.transaction((ids) => {
+    for (const contactId of ids) {
+      stmt.run(uuidv4(), listId, contactId);
+    }
+  });
+  
+  transaction(contactIds);
+  
+  return { success: true, count: contactIds.length };
+});
+
+ipcMain.handle('get-list-contacts', (event, listId) => {
+  const stmt = db.prepare(`
+    SELECT c.* 
+    FROM contacts c
+    INNER JOIN contact_list_members clm ON c.id = clm.contact_id
+    WHERE clm.list_id = ?
+  `);
+  return stmt.all(listId);
+});
+
+// Export responses to CSV
+ipcMain.handle('export-responses-csv', async (event, campaignId) => {
+  try {
+    const Papa = require('papaparse');
+    
+    const responses = db.prepare('SELECT * FROM form_responses WHERE campaign_id = ?').all(campaignId);
+    
+    const data = responses.map(r => ({
+      contact_email: r.contact_email,
+      submitted_at: r.submitted_at,
+      ...JSON.parse(r.response_data)
+    }));
+    
+    const csv = Papa.unparse(data);
+    
+    return { success: true, csv };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Campaign Analytics
+ipcMain.handle('get-campaign-analytics', (event, campaignId) => {
+  try {
+    const emails = db.prepare('SELECT * FROM campaign_emails WHERE campaign_id = ?').all(campaignId);
+    const responses = db.prepare('SELECT * FROM form_responses WHERE campaign_id = ?').all(campaignId);
+    
+    const totalSent = emails.length;
+    const totalOpened = emails.filter(e => e.opened).length;
+    const totalClicked = emails.filter(e => e.clicked).length;
+    const totalResponses = responses.length;
+    
+    return {
+      totalSent,
+      totalOpened,
+      totalClicked,
+      totalResponses,
+      openRate: totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(2) : 0,
+      clickRate: totalSent > 0 ? ((totalClicked / totalSent) * 100).toFixed(2) : 0,
+      responseRate: totalSent > 0 ? ((totalResponses / totalSent) * 100).toFixed(2) : 0
+    };
+  } catch (error) {
+    return { error: error.message };
+  }
+});
+
+// Audit logging helper
+function logAudit(userId, action, entityType, entityId, details) {
+  const id = uuidv4();
+  db.prepare('INSERT INTO audit_logs (id, user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(id, userId, action, entityType, entityId, details);
+}
+
+// User management
+ipcMain.handle('get-users', () => {
+  const stmt = db.prepare('SELECT id, email, name, role, created_at FROM users ORDER BY created_at DESC');
+  return stmt.all();
+});
+
+ipcMain.handle('create-user', async (event, data) => {
+  const { name, email, password, role } = data;
+  const id = uuidv4();
+  const hashedPassword = await bcrypt.hash(password, 10);
+  
+  const stmt = db.prepare('INSERT INTO users (id, email, name, password, role) VALUES (?, ?, ?, ?, ?)');
+  stmt.run(id, email, name, hashedPassword, role);
+  
+  return { success: true, id };
+});
+
+ipcMain.handle('delete-user', (event, id) => {
+  const stmt = db.prepare('DELETE FROM users WHERE id = ?');
+  stmt.run(id);
+  return { success: true };
+});
+
+// ===== NEW FEATURES =====
+
+// Quit app (for TOS decline)
+ipcMain.handle('quit-app', () => {
+  app.quit();
+});
+
+// Complete setup wizard
+ipcMain.handle('complete-setup', async (event, data) => {
+  try {
+    const { companyName, name, email, password, brandColor, logoData, smtp, csvData, deviceContacts } = data;
+    
+    // Create owner account
+    const userId = uuidv4();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    db.prepare('INSERT INTO users (id, email, name, password, role) VALUES (?, ?, ?, ?, ?)')
+      .run(userId, email, name, hashedPassword, 'OWNER');
+    
+    // Save company settings
+    db.prepare(`
+      INSERT OR REPLACE INTO company_settings (id, company_name, company_logo, brand_color, tos_accepted, tos_accepted_date, tos_version)
+      VALUES ('default', ?, ?, ?, 1, ?, '3.0')
+    `).run(companyName, logoData || null, brandColor || '#667eea', new Date().toISOString());
+    
+    // Save SMTP config if provided
+    if (smtp && smtp.host) {
+      const configId = uuidv4();
+      db.prepare(`
+        INSERT INTO email_configs (id, name, smtp_host, smtp_port, smtp_user, smtp_password, from_email, from_name, is_default)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(configId, 'Default', smtp.host, smtp.port, smtp.user, smtp.password, smtp.user, smtp.fromName || companyName);
+    }
+    
+    // Import CSV contacts if provided
+    if (csvData) {
+      const Papa = require('papaparse');
+      const parsed = Papa.parse(csvData, { header: true });
+      
+      for (const row of parsed.data) {
+        if (row.email) {
+          const contactId = uuidv4();
+          try {
+            db.prepare('INSERT INTO contacts (id, email, first_name, last_name, company, phone) VALUES (?, ?, ?, ?, ?, ?)')
+              .run(contactId, row.email, row.first_name || row.name || '', row.last_name || '', row.company || '', row.phone || '');
+          } catch (err) {
+            console.error('Error importing contact:', err);
+          }
+        }
+      }
+    }
+    
+    // Import device contacts if provided
+    if (deviceContacts && deviceContacts.length > 0) {
+      for (const contact of deviceContacts) {
+        if (contact.email) {
+          const contactId = uuidv4();
+          try {
+            db.prepare('INSERT INTO contacts (id, email, first_name, company, phone) VALUES (?, ?, ?, ?, ?)')
+              .run(contactId, contact.email, contact.name || '', contact.company || '', contact.phone || '');
+          } catch (err) {
+            console.error('Error importing device contact:', err);
+          }
+        }
+      }
+    }
+    
+    logAudit(userId, 'SETUP_COMPLETED', 'SYSTEM', 'setup', 'Initial setup completed');
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Setup error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Request device contacts permission (Electron doesn't have direct access, but we can use system dialogs)
+ipcMain.handle('request-contacts-permission', async () => {
+  // Electron doesn't have direct access to system contacts
+  // This would require platform-specific implementation
+  // For now, we'll return false and users can use CSV import
+  return false;
+});
+
+ipcMain.handle('get-device-contacts', async () => {
+  // Not implemented - would require platform-specific code
+  return [];
+});
+
+// User Invitations
+ipcMain.handle('invite-user', async (event, data) => {
+  try {
+    const { email, role, invitedBy } = data;
+    
+    // Check if user already exists
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (existing) {
+      return { success: false, error: 'User with this email already exists' };
+    }
+    
+    // Check for existing pending invitation
+    const pendingInvite = db.prepare('SELECT id FROM user_invitations WHERE email = ? AND accepted = 0').get(email);
+    if (pendingInvite) {
+      return { success: false, error: 'Invitation already sent to this email' };
+    }
+    
+    // Generate secure token
+    const token = crypto.randomBytes(32).toString('hex');
+    const inviteId = uuidv4();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+    
+    db.prepare(`
+      INSERT INTO user_invitations (id, email, role, token, invited_by, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(inviteId, email, role, token, invitedBy, expiresAt);
+    
+    // Generate invitation link (this would be sent via email in production)
+    const inviteLink = `ficos://invite/${token}`;
+    
+    logAudit(invitedBy, 'USER_INVITED', 'USER', inviteId, `Invited ${email} as ${role}`);
+    
+    return {
+      success: true,
+      inviteId,
+      inviteLink,
+      token,
+      message: 'Invitation created. Share this link with the user.'
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-invitations', (event, filters = {}) => {
+  try {
+    let query = 'SELECT * FROM user_invitations WHERE 1=1';
+    const params = [];
+    
+    if (filters.pending) {
+      query += ' AND accepted = 0 AND datetime(expires_at) > datetime("now")';
+    }
+    
+    query += ' ORDER BY created_at DESC';
+    
+    const stmt = db.prepare(query);
+    return stmt.all(...params);
+  } catch (error) {
+    return [];
+  }
+});
+
+ipcMain.handle('accept-invitation', async (event, token) => {
+  try {
+    const invite = db.prepare('SELECT * FROM user_invitations WHERE token = ?').get(token);
+    
+    if (!invite) {
+      return { success: false, error: 'Invalid invitation token' };
+    }
+    
+    if (invite.accepted) {
+      return { success: false, error: 'Invitation already accepted' };
+    }
+    
+    if (new Date(invite.expires_at) < new Date()) {
+      return { success: false, error: 'Invitation has expired' };
+    }
+    
+    return {
+      success: true,
+      invitation: {
+        email: invite.email,
+        role: invite.role
+      }
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('revoke-invitation', (event, inviteId) => {
+  try {
+    db.prepare('DELETE FROM user_invitations WHERE id = ?').run(inviteId);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Owner Oversight Dashboard
+ipcMain.handle('get-owner-dashboard', (event) => {
+  try {
+    // Get all users and their recent activity
+    const users = db.prepare(`
+      SELECT u.id, u.email, u.name, u.role, u.last_login, u.created_at,
+             COUNT(DISTINCT c.id) as campaigns_created,
+             COUNT(DISTINCT al.id) as total_actions
+      FROM users u
+      LEFT JOIN campaigns c ON u.id = c.created_by
+      LEFT JOIN audit_logs al ON u.id = al.user_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `).all();
+    
+    // Get recent activity across all users
+    const recentActivity = db.prepare(`
+      SELECT al.*, u.name as user_name, u.email as user_email
+      FROM audit_logs al
+      LEFT JOIN users u ON al.user_id = u.id
+      ORDER BY al.created_at DESC
+      LIMIT 100
+    `).all();
+    
+    // Get system stats
+    const stats = {
+      totalUsers: db.prepare('SELECT COUNT(*) as count FROM users').get().count,
+      totalCampaigns: db.prepare('SELECT COUNT(*) as count FROM campaigns').get().count,
+      totalContacts: db.prepare('SELECT COUNT(*) as count FROM contacts').get().count,
+      totalResponses: db.prepare('SELECT COUNT(*) as count FROM form_responses').get().count,
+      pendingInvitations: db.prepare('SELECT COUNT(*) as count FROM user_invitations WHERE accepted = 0').get().count
+    };
+    
+    return {
+      success: true,
+      users,
+      recentActivity,
+      stats
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-user-activity', (event, userId) => {
+  try {
+    const activity = db.prepare(`
+      SELECT * FROM audit_logs
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT 500
+    `).all(userId);
+    
+    const user = db.prepare('SELECT id, email, name, role FROM users WHERE id = ?').get(userId);
+    
+    return {
+      success: true,
+      user,
+      activity
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Company Settings
+ipcMain.handle('get-company-settings', () => {
+  try {
+    const settings = db.prepare('SELECT * FROM company_settings WHERE id = "default"').get();
+    return settings || {
+      company_name: '',
+      brand_color: '#667eea',
+      company_logo: null
+    };
+  } catch (error) {
+    return {
+      company_name: '',
+      brand_color: '#667eea',
+      company_logo: null
+    };
+  }
+});
+
+ipcMain.handle('update-company-settings', (event, data) => {
+  try {
+    const { companyName, brandColor, companyLogo } = data;
+    
+    db.prepare(`
+      INSERT OR REPLACE INTO company_settings (id, company_name, brand_color, company_logo, updated_at)
+      VALUES ('default', ?, ?, ?, ?)
+    `).run(companyName, brandColor, companyLogo, new Date().toISOString());
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// App initialization
+app.whenReady().then(() => {
+  initDatabase();
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    if (db) db.close();
+    app.quit();
+  }
+});
+
+// Cleanup on quit
+app.on('before-quit', () => {
+  if (db) {
+    db.close();
+  }
+});

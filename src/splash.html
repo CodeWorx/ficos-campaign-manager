@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FICOS Campaign Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .splash-container {
+            text-align: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        .logo {
+            font-size: 72px;
+            font-weight: 900;
+            letter-spacing: 8px;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 24px;
+            font-weight: 300;
+            margin-bottom: 50px;
+            opacity: 0.9;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px;
+        }
+        
+        .version {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-top: 30px;
+        }
+        
+        .ficos-badge {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 16px;
+            opacity: 0.8;
+            letter-spacing: 2px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-container">
+        <div class="logo">FICOS</div>
+        <div class="subtitle">Campaign Manager</div>
+        <div class="spinner"></div>
+        <div class="version">Loading application...</div>
+    </div>
+    
+    <div class="ficos-badge">FICOS '26</div>
+</body>
+</html>

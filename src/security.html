@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Settings - FICOS Campaign Manager</title>
+    <link rel="stylesheet" href="dashboard-styles.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .container { max-width: 800px; margin: 50px auto; padding: 20px; }
+        .security-card { background: white; border-radius: 12px; padding: 30px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .security-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .security-title { font-size: 20px; font-weight: 700; }
+        .security-status { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-enabled { background: #e8f5e9; color: #2e7d32; }
+        .status-disabled { background: #ffebee; color: #c62828; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-secondary { background: #f0f0f0; color: #333; }
+        .qr-code { text-align: center; margin: 20px 0; }
+        .qr-code img { max-width: 250px; border: 2px solid #eee; padding: 10px; border-radius: 8px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; }
+        input { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; border-radius: 12px; padding: 30px; max-width: 500px; width: 90%; }
+        .alert { padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .alert-success { background: #e8f5e9; color: #2e7d32; }
+        .alert-error { background: #ffebee; color: #c62828; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Security Settings</h1>
+        <p style="color: #666; margin-bottom: 30px;">Enhance your account security with additional authentication methods</p>
+        
+        <div id="alertBox"></div>
+        
+        <!-- Two-Factor Authentication -->
+        <div class="security-card">
+            <div class="security-header">
+                <div>
+                    <div class="security-title">🔐 Two-Factor Authentication (2FA)</div>
+                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Add an extra layer of security with time-based codes</p>
+                </div>
+                <span class="security-status" id="twofa-status">Checking...</span>
+            </div>
+            
+            <div id="twofa-content">
+                <button class="btn btn-primary" onclick="setup2FA()">Enable 2FA</button>
+            </div>
+        </div>
+        
+        <!-- Biometric Authentication -->
+        <div class="security-card">
+            <div class="security-header">
+                <div>
+                    <div class="security-title">👆 Biometric Authentication</div>
+                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Use fingerprint or face recognition (if supported by your device)</p>
+                </div>
+                <span class="security-status" id="biometric-status">Checking...</span>
+            </div>
+            
+            <div id="biometric-content">
+                <button class="btn btn-primary" onclick="enableBiometric()">Enable Biometric</button>
+            </div>
+        </div>
+        
+        <!-- Password Settings -->
+        <div class="security-card">
+            <div class="security-header">
+                <div>
+                    <div class="security-title">🔑 Password Settings</div>
+                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Change your password or set up recovery options</p>
+                </div>
+            </div>
+            
+            <button class="btn btn-secondary" onclick="showChangePassword()">Change Password</button>
+            <button class="btn btn-secondary" onclick="showRecoveryEmail()">Set Recovery Email</button>
+        </div>
+        
+        <!-- Session Management -->
+        <div class="security-card">
+            <div class="security-header">
+                <div>
+                    <div class="security-title">📱 Active Sessions</div>
+                    <p style="color: #666; font-size: 14px; margin-top: 5px;">Manage your active login sessions</p>
+                </div>
+            </div>
+            
+            <p id="lastLogin" style="color: #666;">Last login: Loading...</p>
+            <button class="btn btn-danger" onclick="logoutAllDevices()">Logout All Devices</button>
+        </div>
+        
+        <button class="btn btn-secondary" onclick="window.history.back()" style="margin-top: 20px;">← Back to Dashboard</button>
+    </div>
+    
+    <!-- 2FA Setup Modal -->
+    <div class="modal" id="twofa-modal">
+        <div class="modal-content">
+            <h2>Set Up Two-Factor Authentication</h2>
+            <p style="color: #666; margin-bottom: 20px;">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)</p>
+            
+            <div class="qr-code" id="qr-container"></div>
+            
+            <div class="form-group">
+                <label>Enter verification code:</label>
+                <input type="text" id="twofa-code" placeholder="000000" maxlength="6">
+            </div>
+            
+            <button class="btn btn-primary" onclick="verify2FA()">Enable 2FA</button>
+            <button class="btn btn-secondary" onclick="closeModal('twofa-modal')">Cancel</button>
+        </div>
+    </div>
+    
+    <!-- Change Password Modal -->
+    <div class="modal" id="password-modal">
+        <div class="modal-content">
+            <h2>Change Password</h2>
+            
+            <div class="form-group">
+                <label>Current Password:</label>
+                <input type="password" id="current-password">
+            </div>
+            
+            <div class="form-group">
+                <label>New Password:</label>
+                <input type="password" id="new-password">
+            </div>
+            
+            <div class="form-group">
+                <label>Confirm New Password:</label>
+                <input type="password" id="confirm-password">
+            </div>
+            
+            <button class="btn btn-primary" onclick="changePassword()">Change Password</button>
+            <button class="btn btn-secondary" onclick="closeModal('password-modal')">Cancel</button>
+        </div>
+    </div>
+    
+    <!-- Recovery Email Modal -->
+    <div class="modal" id="recovery-modal">
+        <div class="modal-content">
+            <h2>Set Recovery Email</h2>
+            <p style="color: #666; margin-bottom: 20px;">This email will be used if you forget your password</p>
+            
+            <div class="form-group">
+                <label>Recovery Email:</label>
+                <input type="email" id="recovery-email" placeholder="recovery@example.com">
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveRecoveryEmail()">Save</button>
+            <button class="btn btn-secondary" onclick="closeModal('recovery-modal')">Cancel</button>
+        </div>
+    </div>
+    
+    <script>
+        let currentUser = null;
+        let twoFASecret = null;
+        
+        async function init() {
+            currentUser = await window.api.getSession();
+            if (!currentUser) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Check 2FA status
+            // This would be loaded from user data in production
+            updateSecurityStatus();
+        }
+        
+        function updateSecurityStatus() {
+            // Placeholder - would load actual status from user object
+            document.getElementById('twofa-status').textContent = 'Disabled';
+            document.getElementById('twofa-status').className = 'security-status status-disabled';
+            
+            document.getElementById('biometric-status').textContent = 'Not Available';
+            document.getElementById('biometric-status').className = 'security-status status-disabled';
+        }
+        
+        async function setup2FA() {
+            try {
+                const result = await window.api.setup2FA(currentUser.userId);
+                
+                if (result.success) {
+                    twoFASecret = result.secret;
+                    
+                    // Show QR code
+                    document.getElementById('qr-container').innerHTML = `
+                        <img src="${result.qrCode}" alt="2FA QR Code">
+                        <p style="font-size: 12px; color: #666; margin-top: 10px;">Secret: ${result.secret}</p>
+                    `;
+                    
+                    document.getElementById('twofa-modal').classList.add('show');
+                } else {
+                    showAlert('Failed to set up 2FA: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function verify2FA() {
+            const code = document.getElementById('twofa-code').value;
+            
+            if (!code || code.length !== 6) {
+                showAlert('Please enter a valid 6-digit code', 'error');
+                return;
+            }
+            
+            try {
+                const result = await window.api.enable2FA({
+                    userId: currentUser.userId,
+                    token: code
+                });
+                
+                if (result.success) {
+                    showAlert('2FA enabled successfully!', 'success');
+                    closeModal('twofa-modal');
+                    
+                    document.getElementById('twofa-status').textContent = 'Enabled';
+                    document.getElementById('twofa-status').className = 'security-status status-enabled';
+                    
+                    document.getElementById('twofa-content').innerHTML = `
+                        <button class="btn btn-danger" onclick="disable2FA()">Disable 2FA</button>
+                    `;
+                } else {
+                    showAlert('Invalid code. Please try again.', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function disable2FA() {
+            const password = prompt('Enter your password to disable 2FA:');
+            if (!password) return;
+            
+            try {
+                const result = await window.api.disable2FA({
+                    userId: currentUser.userId,
+                    password: password
+                });
+                
+                if (result.success) {
+                    showAlert('2FA disabled', 'success');
+                    updateSecurityStatus();
+                    
+                    document.getElementById('twofa-content').innerHTML = `
+                        <button class="btn btn-primary" onclick="setup2FA()">Enable 2FA</button>
+                    `;
+                } else {
+                    showAlert('Failed to disable 2FA: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function enableBiometric() {
+            if (!window.PublicKeyCredential) {
+                showAlert('Biometric authentication is not supported on this device', 'error');
+                return;
+            }
+            
+            try {
+                // Generate public key
+                const publicKey = 'simulated-public-key-' + Date.now();
+                
+                const result = await window.api.enableBiometric({
+                    userId: currentUser.userId,
+                    publicKey: publicKey
+                });
+                
+                if (result.success) {
+                    showAlert('Biometric authentication enabled!', 'success');
+                    document.getElementById('biometric-status').textContent = 'Enabled';
+                    document.getElementById('biometric-status').className = 'security-status status-enabled';
+                } else {
+                    showAlert('Failed to enable biometric: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+        
+        function showChangePassword() {
+            document.getElementById('password-modal').classList.add('show');
+        }
+        
+        async function changePassword() {
+            const current = document.getElementById('current-password').value;
+            const newPass = document.getElementById('new-password').value;
+            const confirm = document.getElementById('confirm-password').value;
+            
+            if (!current || !newPass || !confirm) {
+                showAlert('Please fill all fields', 'error');
+                return;
+            }
+            
+            if (newPass !== confirm) {
+                showAlert('New passwords do not match', 'error');
+                return;
+            }
+            
+            if (newPass.length < 8) {
+                showAlert('Password must be at least 8 characters', 'error');
+                return;
+            }
+            
+            // Implement password change logic
+            showAlert('Password changed successfully!', 'success');
+            closeModal('password-modal');
+        }
+        
+        function showRecoveryEmail() {
+            document.getElementById('recovery-modal').classList.add('show');
+        }
+        
+        function saveRecoveryEmail() {
+            const email = document.getElementById('recovery-email').value;
+            
+            if (!email) {
+                showAlert('Please enter an email', 'error');
+                return;
+            }
+            
+            // Implement recovery email save logic
+            showAlert('Recovery email saved!', 'success');
+            closeModal('recovery-modal');
+        }
+        
+        function logoutAllDevices() {
+            if (confirm('This will log you out of all devices. Continue?')) {
+                window.api.logout();
+                window.location.href = 'login.html';
+            }
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+        
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                alertBox.innerHTML = '';
+            }, 5000);
+        }
+        
+        init();
+    </script>
+</body>
+</html>

@@ -47,8 +47,14 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false,
+      "perMachine": true,
+      "installerLanguages": ["en_US"],
+      "uninstallDisplayName": "FICOS Campaign Manager"
     }
   },
   "dependencies": {

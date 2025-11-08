@@ -307,22 +307,30 @@ function showCreateCampaign() {
 
 async function createCampaign(event) {
     event.preventDefault();
-    
+
     const name = document.getElementById('campaignName').value;
     const description = document.getElementById('campaignDescription').value;
     const formHtml = document.getElementById('formHtmlEditor').value;
-    
-    const result = await window.api.createCampaign({
-        name,
-        description,
-        formHtml,
-        userId: currentUser.userId
-    });
-    
-    if (result.success) {
-        closeModal('createCampaignModal');
-        await loadCampaigns();
-        alert('Campaign created successfully!');
+
+    try {
+        const result = await window.api.createCampaign({
+            name,
+            description,
+            formHtml,
+            userId: currentUser.userId
+        });
+
+        if (result.success || result.id) {
+            closeModal('createCampaignModal');
+            document.getElementById('createCampaignForm').reset();
+            await loadCampaigns();
+            alert('Campaign created successfully!');
+        } else {
+            alert('Failed to create campaign: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error creating campaign:', error);
+        alert('An error occurred while creating the campaign. Please try again.');
     }
 }
 
@@ -476,10 +484,10 @@ function showAddUser() {
 async function addUser(event) {
     event.preventDefault();
 
-    const name = document.getElementById('userName').value;
-    const email = document.getElementById('userEmail').value;
-    const password = document.getElementById('userPassword').value;
-    const role = document.getElementById('userRole').value;
+    const name = document.getElementById('newUserName').value;
+    const email = document.getElementById('newUserEmail').value;
+    const password = document.getElementById('newUserPassword').value;
+    const role = document.getElementById('newUserRole').value;
 
     const result = await window.api.createUser({
         name,

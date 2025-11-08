@@ -162,6 +162,7 @@ function renderCampaigns() {
             <td><span class="status-badge status-${campaign.status.toLowerCase()}">${campaign.status}</span></td>
             <td>${formatDate(campaign.created_at)}</td>
             <td>
+                <button class="btn btn-secondary" onclick="viewCampaign('${campaign.id}')">View</button>
                 <button class="btn btn-secondary" onclick="editCampaign('${campaign.id}')">Edit</button>
                 ${currentUser.role === 'OWNER' ? `<button class="btn btn-danger" onclick="deleteCampaign('${campaign.id}')">Delete</button>` : ''}
             </td>
@@ -300,7 +301,19 @@ function renderUsers() {
 
 // Campaign operations
 function showCreateCampaign() {
-    document.getElementById('createCampaignModal').classList.add('show');
+    const modal = document.getElementById('createCampaignModal');
+    modal.classList.add('show');
+
+    // Aggressively enable all inputs in the modal
+    setTimeout(() => {
+        modal.querySelectorAll('input, textarea, select').forEach(elem => {
+            elem.removeAttribute('disabled');
+            elem.removeAttribute('readonly');
+            elem.style.pointerEvents = 'auto';
+            elem.style.userSelect = 'text';
+            elem.style.opacity = '1';
+        });
+    }, 50);
 
     // Initialize ToastUI Editor if not already initialized
     if (!campaignEditor) {
@@ -365,6 +378,77 @@ async function createCampaign(event) {
         console.error('Error creating campaign:', error);
         alert('An error occurred while creating the campaign. Please try again.');
     }
+}
+
+async function viewCampaign(id) {
+    const campaign = campaigns.find(c => c.id === id);
+    if (!campaign) {
+        alert('Campaign not found');
+        return;
+    }
+
+    // Create a modal to view the campaign
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>${campaign.name}</h2>
+                <span class="close" onclick="this.closest('.modal').remove()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <strong>Status:</strong> <span class="status-badge status-${campaign.status.toLowerCase()}">${campaign.status}</span>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <strong>Description:</strong><br>
+                    ${campaign.description || 'No description provided'}
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <strong>Created:</strong> ${formatDate(campaign.created_at)}
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <strong>Campaign Content:</strong>
+                    <div style="border: 1px solid #ddd; padding: 20px; border-radius: 8px; background: white; margin-top: 10px; max-height: 400px; overflow-y: auto;">
+                        ${campaign.form_html || 'No content'}
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 20px; border-top: 1px solid #e0e0e0; text-align: right;">
+                <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Close</button>
+                <button class="btn btn-primary" onclick="this.closest('.modal').remove(); editCampaign('${id}')">Edit Campaign</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function editCampaign(id) {
+    const campaign = campaigns.find(c => c.id === id);
+    if (!campaign) {
+        alert('Campaign not found');
+        return;
+    }
+
+    // Populate the create campaign modal with existing data
+    document.getElementById('campaignName').value = campaign.name;
+    document.getElementById('campaignDescription').value = campaign.description || '';
+
+    // Initialize editor if not already initialized
+    showCreateCampaign();
+
+    // Load the HTML content into the editor
+    if (campaignEditor) {
+        campaignEditor.setHTML(campaign.form_html || '');
+    }
+
+    // Change the form to edit mode (we'll need to handle the submit differently)
+    const form = document.getElementById('createCampaignForm');
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.textContent = 'Update Campaign';
+
+    // Store the campaign ID for updating
+    form.dataset.editingId = id;
 }
 
 async function deleteCampaign(id) {
@@ -1024,15 +1108,31 @@ async function insertTemplate(templateId) {
 
         // Insert into ToastUI Editor
         if (campaignEditor) {
-            // Get current position or append at end
-            const currentContent = campaignEditor.getHTML();
-
-            // Insert at cursor position (append to end for simplicity)
-            const newContent = currentContent + '\n\n' + htmlContent;
-            campaignEditor.setHTML(newContent);
-
-            showNotification(`Template "${template.name}" inserted successfully`, 'success');
-            closeModal('templateBrowserModal');
+            try {
+                // Try to insert HTML at cursor position
+                campaignEditor.insertHTML(htmlContent);
+                showNotification(`Template "${template.name}" inserted successfully`, 'success');
+                closeModal('templateBrowserModal');
+            } catch (insertError) {
+                // If insertion fails, try appending to existing content
+                console.warn('Direct insertion failed, appending instead:', insertError);
+                const currentContent = campaignEditor.getHTML() || '';
+                const newContent = currentContent + (currentContent ? '<br><br>' : '') + htmlContent;
+                // Use markdown setter which is more stable
+                campaignEditor.setMarkdown(campaignEditor.getMarkdown() + '\n\n');
+                // Then switch to WYSIWYG and insert HTML
+                campaignEditor.changeMode('wysiwyg');
+                setTimeout(() => {
+                    try {
+                        campaignEditor.insertHTML(htmlContent);
+                    } catch (e) {
+                        // Last resort: set entire HTML
+                        campaignEditor.setHTML(newContent);
+                    }
+                }, 100);
+                showNotification(`Template "${template.name}" inserted successfully`, 'success');
+                closeModal('templateBrowserModal');
+            }
         } else {
             showNotification('Editor not initialized', 'error');
         }

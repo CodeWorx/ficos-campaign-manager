@@ -424,6 +424,119 @@
             font-size: 12px;
             letter-spacing: 1px;
         }
+
+        /* Rich Text Toolbar */
+        .html-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px;
+            background: #f5f7fa;
+            border: 2px solid #e0e0e0;
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .toolbar-btn {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .toolbar-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            background: #d0d0d0;
+            margin: 0 5px;
+        }
+
+        .code-editor.with-toolbar {
+            border-radius: 0 0 8px 8px;
+            border-top: none;
+        }
+
+        /* User Profile Dropdown */
+        .user-avatar {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .user-avatar:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            bottom: 60px;
+            left: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 1000;
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            color: #333;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+
+        .dropdown-item:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .dropdown-item:hover {
+            background: #f5f7fa;
+        }
+
+        .dropdown-item.separator {
+            height: 1px;
+            padding: 0;
+            background: #e0e0e0;
+            cursor: default;
+        }
+
+        /* CSV Import */
+        #csvFileInput {
+            display: none;
+        }
+
+        /* Modal form improvements */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group.required label::after {
+            content: ' *';
+            color: #e74c3c;
+        }
     </style>
 </head>
 <body>
@@ -463,11 +576,18 @@
         
         <div class="user-section">
             <div class="user-info">
-                <div class="user-avatar" id="userAvatar"></div>
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserDropdown()"></div>
                 <div class="user-details">
                     <div class="user-name" id="userName"></div>
                     <div class="user-role" id="userRole"></div>
                 </div>
+            </div>
+            <div class="user-dropdown" id="userDropdown">
+                <div class="dropdown-item" onclick="viewProfile()">View Profile</div>
+                <div class="dropdown-item" id="settingsDropdownItem" style="display: none;" onclick="openSettings()">Settings</div>
+                <div class="dropdown-item" onclick="returnToSetup()">Return to Setup Wizard</div>
+                <div class="dropdown-item separator"></div>
+                <div class="dropdown-item" onclick="logout()">Sign Out</div>
             </div>
             <button class="logout-btn" onclick="logout()">Sign Out</button>
         </div>
@@ -692,7 +812,10 @@
         </div>
     </div>
     
-    <!-- Modals will go here -->
+    <!-- Hidden file input for CSV import -->
+    <input type="file" id="csvFileInput" accept=".csv" />
+
+    <!-- Modals -->
     <!-- Campaign Creation Modal -->
     <div class="modal" id="createCampaignModal">
         <div class="modal-content" style="max-width: 1200px;">
@@ -715,7 +838,34 @@
                 <div class="split-editor">
                     <div class="editor-pane">
                         <div class="pane-title">📝 HTML Editor</div>
-                        <textarea class="code-editor" id="formHtmlEditor" placeholder="Enter your HTML form here...">
+                        <div class="html-toolbar">
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<strong></strong>', 8)" title="Bold">B</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<em></em>', 4)" title="Italic"><em>I</em></button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<u></u>', 3)" title="Underline"><u>U</u></button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h1></h1>', 4)" title="Heading 1">H1</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h2></h2>', 4)" title="Heading 2">H2</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h3></h3>', 4)" title="Heading 3">H3</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<ul>\n  <li></li>\n</ul>', 12)" title="Bulleted List">• List</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<ol>\n  <li></li>\n</ol>', 12)" title="Numbered List">1. List</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<input type=&quot;text&quot; name=&quot;&quot; placeholder=&quot;&quot;>', 0)" title="Input Field">Input</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<textarea name=&quot;&quot; rows=&quot;4&quot;></textarea>', 0)" title="Textarea">Textarea</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<select name=&quot;&quot;>\n  <option value=&quot;&quot;></option>\n</select>', 0)" title="Dropdown">Dropdown</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<label><input type=&quot;checkbox&quot; name=&quot;&quot;> </label>', 0)" title="Checkbox">Checkbox</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<label><input type=&quot;radio&quot; name=&quot;&quot;> </label>', 0)" title="Radio">Radio</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<a href=&quot;&quot;></a>', 4)" title="Link">Link</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<img src=&quot;&quot; alt=&quot;&quot;>', 0)" title="Image">Image</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<hr>', 0)" title="Horizontal Line">HR</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<button type=&quot;submit&quot;></button>', 9)" title="Submit Button">Submit</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: left;&quot;>\n  \n</div>', 36)" title="Align Left">⬅ Left</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: center;&quot;>\n  \n</div>', 38)" title="Align Center">↔ Center</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: right;&quot;>\n  \n</div>', 37)" title="Align Right">➡ Right</button>
+                        </div>
+                        <textarea class="code-editor with-toolbar" id="formHtmlEditor" placeholder="Enter your HTML form here...">
 <form>
   <label>Name:</label>
   <input type="text" name="name" required><br><br>
@@ -741,7 +891,97 @@
             </form>
         </div>
     </div>
-    
+
+    <!-- Add Contact Modal -->
+    <div class="modal" id="addContactModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add Contact</h2>
+                <button class="close-modal" onclick="closeModal('addContactModal')">&times;</button>
+            </div>
+
+            <form id="addContactForm">
+                <div class="form-group required">
+                    <label>Email</label>
+                    <input type="email" id="contactEmail" required placeholder="contact@example.com">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="contactFirstName" placeholder="John">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="contactLastName" placeholder="Doe">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Company</label>
+                    <input type="text" id="contactCompany" placeholder="Acme Corp">
+                </div>
+
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="tel" id="contactPhone" placeholder="+1 (555) 123-4567">
+                </div>
+
+                <div class="form-group">
+                    <label>Tags</label>
+                    <input type="text" id="contactTags" placeholder="customer, vip (comma-separated)">
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit" class="btn btn-primary">Add Contact</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addContactModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal" id="addUserModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add User</h2>
+                <button class="close-modal" onclick="closeModal('addUserModal')">&times;</button>
+            </div>
+
+            <form id="addUserForm">
+                <div class="form-group required">
+                    <label>Name</label>
+                    <input type="text" id="userName" required placeholder="John Doe">
+                </div>
+
+                <div class="form-group required">
+                    <label>Email</label>
+                    <input type="email" id="userEmail" required placeholder="user@example.com">
+                </div>
+
+                <div class="form-group required">
+                    <label>Password</label>
+                    <input type="password" id="userPassword" required placeholder="Minimum 8 characters">
+                </div>
+
+                <div class="form-group required">
+                    <label>Role</label>
+                    <select id="userRole" required>
+                        <option value="">Select a role...</option>
+                        <option value="USER">User</option>
+                        <option value="ADMIN">Admin</option>
+                    </select>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="dashboard.js"></script>
 </body>
 </html>

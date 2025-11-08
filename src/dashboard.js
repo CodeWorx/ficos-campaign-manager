@@ -24,6 +24,7 @@ async function init() {
     // Show users menu only for OWNER
     if (currentUser.role === 'OWNER') {
         document.getElementById('usersNav').style.display = 'flex';
+        document.getElementById('settingsDropdownItem').style.display = 'block';
     }
     
     // Load initial data
@@ -327,25 +328,100 @@ async function deleteCampaign(id) {
 
 // Contact operations
 function showAddContact() {
-    // This would open a modal - simplified for now
-    const email = prompt('Enter contact email:');
-    if (!email) return;
-    
-    const firstName = prompt('Enter first name:');
-    const lastName = prompt('Enter last name:');
-    
-    window.api.createContact({
+    document.getElementById('addContactModal').classList.add('show');
+}
+
+async function addContact(event) {
+    event.preventDefault();
+
+    const email = document.getElementById('contactEmail').value;
+    const firstName = document.getElementById('contactFirstName').value;
+    const lastName = document.getElementById('contactLastName').value;
+    const company = document.getElementById('contactCompany').value;
+    const phone = document.getElementById('contactPhone').value;
+    const tags = document.getElementById('contactTags').value;
+
+    const result = await window.api.createContact({
         email,
         firstName,
-        lastName
-    }).then(() => {
-        loadContacts();
-        alert('Contact added successfully!');
+        lastName,
+        company,
+        phone,
+        tags
     });
+
+    if (result.success || result.id) {
+        closeModal('addContactModal');
+        await loadContacts();
+        alert('Contact added successfully!');
+        // Reset form
+        document.getElementById('addContactForm').reset();
+    } else {
+        alert('Failed to add contact: ' + (result.error || 'Unknown error'));
+    }
 }
 
 function showImportContacts() {
-    alert('CSV Import: Feature coming soon! For now, add contacts one by one.');
+    const fileInput = document.getElementById('csvFileInput');
+    fileInput.onchange = handleCSVImport;
+    fileInput.click();
+}
+
+async function handleCSVImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const csvContent = e.target.result;
+        const lines = csvContent.split('\n');
+
+        if (lines.length < 2) {
+            alert('CSV file is empty or invalid');
+            return;
+        }
+
+        // Parse CSV (simple parsing - assumes no quotes with commas)
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const contacts = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+
+            const values = lines[i].split(',').map(v => v.trim());
+            const contact = {};
+
+            headers.forEach((header, index) => {
+                if (values[index]) {
+                    contact[header] = values[index];
+                }
+            });
+
+            if (contact.email) {
+                contacts.push(contact);
+            }
+        }
+
+        if (contacts.length === 0) {
+            alert('No valid contacts found in CSV');
+            return;
+        }
+
+        // Import contacts
+        const result = await window.api.importContactsCSV(contacts);
+
+        if (result.success || result.count !== undefined) {
+            await loadContacts();
+            alert(`Successfully imported ${result.count || contacts.length} contacts!`);
+        } else {
+            alert('Failed to import contacts: ' + (result.error || 'Unknown error'));
+        }
+
+        // Reset file input
+        event.target.value = '';
+    };
+
+    reader.readAsText(file);
 }
 
 async function deleteContact(id) {
@@ -386,23 +462,33 @@ function showAddEmailConfig() {
 
 // User operations (OWNER only)
 function showAddUser() {
-    // Simplified
-    const name = prompt('User name:');
-    if (!name) return;
-    
-    const email = prompt('User email:');
-    const password = prompt('Initial password:');
-    const role = prompt('Role (ADMIN or USER):', 'USER');
-    
-    window.api.createUser({
+    document.getElementById('addUserModal').classList.add('show');
+}
+
+async function addUser(event) {
+    event.preventDefault();
+
+    const name = document.getElementById('userName').value;
+    const email = document.getElementById('userEmail').value;
+    const password = document.getElementById('userPassword').value;
+    const role = document.getElementById('userRole').value;
+
+    const result = await window.api.createUser({
         name,
         email,
         password,
         role
-    }).then(() => {
-        loadUsers();
-        alert('User created successfully!');
     });
+
+    if (result.success || result.id) {
+        closeModal('addUserModal');
+        await loadUsers();
+        alert('User created successfully!');
+        // Reset form
+        document.getElementById('addUserForm').reset();
+    } else {
+        alert('Failed to create user: ' + (result.error || 'Unknown error'));
+    }
 }
 
 async function deleteUser(id) {
@@ -430,6 +516,70 @@ function updatePreview() {
     }
 }
 
+// Rich Text Toolbar Functions
+function insertHTML(html, cursorOffset) {
+    const editor = document.getElementById('formHtmlEditor');
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const text = editor.value;
+
+    // Insert HTML at cursor position
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    editor.value = before + html + after;
+
+    // Set cursor position
+    const newCursorPos = start + html.length - cursorOffset;
+    editor.setSelectionRange(newCursorPos, newCursorPos);
+    editor.focus();
+
+    // Update preview
+    updatePreview();
+}
+
+// User Profile Dropdown Functions
+function toggleUserDropdown() {
+    const dropdown = document.getElementById('userDropdown');
+    dropdown.classList.toggle('show');
+
+    // Close dropdown when clicking outside
+    if (dropdown.classList.contains('show')) {
+        setTimeout(() => {
+            document.addEventListener('click', closeDropdownOnClickOutside);
+        }, 0);
+    }
+}
+
+function closeDropdownOnClickOutside(event) {
+    const dropdown = document.getElementById('userDropdown');
+    const avatar = document.getElementById('userAvatar');
+
+    if (!dropdown.contains(event.target) && !avatar.contains(event.target)) {
+        dropdown.classList.remove('show');
+        document.removeEventListener('click', closeDropdownOnClickOutside);
+    }
+}
+
+function viewProfile() {
+    const dropdown = document.getElementById('userDropdown');
+    dropdown.classList.remove('show');
+    alert('Profile view coming soon!\n\nUser: ' + currentUser.name + '\nEmail: ' + currentUser.email + '\nRole: ' + currentUser.role);
+}
+
+function openSettings() {
+    const dropdown = document.getElementById('userDropdown');
+    dropdown.classList.remove('show');
+    alert('Settings page coming soon!');
+}
+
+function returnToSetup() {
+    const dropdown = document.getElementById('userDropdown');
+    dropdown.classList.remove('show');
+    if (confirm('Are you sure you want to return to the setup wizard?')) {
+        window.location.href = 'setup.html';
+    }
+}
+
 // Utility functions
 function formatDate(dateString) {
     const date = new Date(dateString);
@@ -450,6 +600,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const createCampaignForm = document.getElementById('createCampaignForm');
     if (createCampaignForm) {
         createCampaignForm.addEventListener('submit', createCampaign);
+    }
+
+    const addContactForm = document.getElementById('addContactForm');
+    if (addContactForm) {
+        addContactForm.addEventListener('submit', addContact);
+    }
+
+    const addUserForm = document.getElementById('addUserForm');
+    if (addUserForm) {
+        addUserForm.addEventListener('submit', addUser);
     }
 });
 

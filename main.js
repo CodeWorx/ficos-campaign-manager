@@ -558,11 +558,6 @@ ipcMain.handle('logout', () => {
   return { success: true };
 });
 
-// Get company settings
-ipcMain.handle('get-company-settings', () => {
-  return store.get('company', { name: 'FICOS', setupComplete: false });
-});
-
 // Campaign operations
 ipcMain.handle('get-campaigns', (event, userId) => {
   const stmt = db.prepare(`

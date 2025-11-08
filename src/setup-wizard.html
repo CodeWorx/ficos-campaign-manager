@@ -688,7 +688,7 @@
             </div>
             
             <div class="button-group">
-                <button class="btn-primary" onclick="completeSetup()" style="flex: 1;">🚀 Go to Dashboard</button>
+                <button class="btn-primary" onclick="completeSetup(event)" style="flex: 1;">🚀 Go to Dashboard</button>
             </div>
         </div>
         
@@ -901,27 +901,42 @@
             }
         }
         
-        async function completeSetup() {
+        async function completeSetup(event) {
             const btn = event.target;
             btn.disabled = true;
             btn.textContent = '⏳ Setting up...';
-            
+
+            // Log setup data for debugging
+            console.log('[SETUP-WIZARD] Starting setup with data:', setupData);
+
+            // Validate required fields
+            if (!setupData.name || !setupData.email || !setupData.password) {
+                alert('Error: Missing required owner information. Please go back and fill in all required fields.');
+                btn.disabled = false;
+                btn.textContent = '🚀 Go to Dashboard';
+                return;
+            }
+
             try {
+                console.log('[SETUP-WIZARD] Calling window.api.completeSetup...');
                 const result = await window.api.completeSetup(setupData);
-                
+                console.log('[SETUP-WIZARD] Result:', result);
+
                 if (result.success) {
                     btn.textContent = '✓ Success!';
+                    console.log('[SETUP-WIZARD] Setup completed successfully, redirecting to login...');
                     setTimeout(() => {
                         window.location.href = 'login.html';
-                    }, 1000);
+                    }, 1500);
                 } else {
+                    console.error('[SETUP-WIZARD] Setup failed:', result.error);
                     alert('Setup failed: ' + (result.error || 'Unknown error'));
                     btn.disabled = false;
                     btn.textContent = '🚀 Go to Dashboard';
                 }
             } catch (error) {
-                console.error('Setup error:', error);
-                alert('An error occurred during setup. Please try again.');
+                console.error('[SETUP-WIZARD] Setup exception:', error);
+                alert('An error occurred during setup: ' + error.message);
                 btn.disabled = false;
                 btn.textContent = '🚀 Go to Dashboard';
             }

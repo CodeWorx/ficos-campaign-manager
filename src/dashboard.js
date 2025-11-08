@@ -8,6 +8,7 @@ let users = [];
 let companySettings = null;
 let currentLogoBase64 = null;
 let campaignEditor = null; // ToastUI Editor instance
+let selectedRecipients = []; // IDs of selected contacts for campaign
 
 // Initialize dashboard
 async function init() {
@@ -105,6 +106,9 @@ async function loadDashboard() {
     
     // Show recent campaigns
     renderRecentCampaigns(campaigns.slice(0, 5));
+
+    // Show scheduled campaigns
+    renderScheduledCampaigns(campaigns.filter(c => c.status === 'SCHEDULED'));
 }
 
 // Render recent campaigns
@@ -133,6 +137,71 @@ function renderRecentCampaigns(recentCampaigns) {
             </td>
         </tr>
     `).join('');
+}
+
+// Render scheduled campaigns
+function renderScheduledCampaigns(scheduledCampaigns) {
+    const table = document.getElementById('scheduledCampaignsTable');
+    const countElem = document.getElementById('scheduledCount');
+
+    if (countElem) {
+        countElem.textContent = `${scheduledCampaigns.length} scheduled`;
+    }
+
+    if (scheduledCampaigns.length === 0) {
+        table.innerHTML = `
+            <tr>
+                <td colspan="4" class="empty-state">
+                    <div class="empty-icon">📅</div>
+                    <div>No scheduled campaigns. Schedule a campaign to see it here!</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    table.innerHTML = scheduledCampaigns.map(campaign => {
+        const scheduledDate = campaign.scheduled_for ? new Date(campaign.scheduled_for) : null;
+        const dateStr = scheduledDate ? scheduledDate.toLocaleString() : 'Not set';
+        const isOverdue = scheduledDate && scheduledDate < new Date();
+
+        return `
+            <tr>
+                <td>${escapeHtml(campaign.name)}</td>
+                <td><span style="color: #666; font-size: 13px;">-</span></td>
+                <td>
+                    <span style="color: ${isOverdue ? '#e74c3c' : '#666'}; font-weight: ${isOverdue ? '600' : 'normal'};">
+                        ${dateStr}
+                        ${isOverdue ? ' <span style="color: #e74c3c;">⚠️ Overdue</span>' : ''}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-secondary" onclick="viewCampaign('${campaign.id}')">View</button>
+                    <button class="btn btn-secondary" onclick="editCampaign('${campaign.id}')">Edit</button>
+                    ${currentUser.role === 'OWNER' ? `<button class="btn btn-danger" onclick="cancelScheduledCampaign('${campaign.id}')">Cancel</button>` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function cancelScheduledCampaign(id) {
+    if (!confirm('Cancel this scheduled campaign? It will be changed to draft status.')) return;
+
+    try {
+        // Update campaign status to DRAFT
+        const campaign = campaigns.find(c => c.id === id);
+        if (campaign) {
+            campaign.status = 'DRAFT';
+            campaign.scheduled_for = null;
+
+            showNotification('Scheduled campaign canceled successfully', 'success');
+            await loadDashboard();
+        }
+    } catch (error) {
+        console.error('Error canceling scheduled campaign:', error);
+        showNotification('Failed to cancel scheduled campaign', 'error');
+    }
 }
 
 // Load campaigns
@@ -300,6 +369,34 @@ function renderUsers() {
 }
 
 // Campaign operations
+
+// Create custom toolbar button for quick template insertion
+function createTemplateButton(label, templateId) {
+    const button = document.createElement('button');
+    button.className = 'toastui-editor-toolbar-icons';
+    button.style.cssText = 'background: none; border: none; color: #333; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: 500;';
+    button.textContent = label;
+    button.type = 'button';
+
+    button.onclick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Load templates if not already loaded
+        if (!allTemplates || allTemplates.length === 0) {
+            await loadTemplates();
+        }
+
+        // Find and insert the template
+        const template = allTemplates.find(t => t.id === templateId);
+        if (template) {
+            insertTemplate(templateId);
+        }
+    };
+
+    return button;
+}
+
 function showCreateCampaign() {
     const modal = document.getElementById('createCampaignModal');
     modal.classList.add('show');
@@ -342,7 +439,28 @@ function showCreateCampaign() {
                     ['ul', 'ol', 'task', 'indent', 'outdent'],
                     ['table', 'link'],
                     ['code', 'codeblock'],
-                    ['scrollSync']
+                    [
+                        {
+                            el: createTemplateButton('📋 Header', 'header-simple'),
+                            tooltip: 'Insert Header',
+                            name: 'insertHeader'
+                        },
+                        {
+                            el: createTemplateButton('🦶 Footer', 'footer-simple'),
+                            tooltip: 'Insert Footer',
+                            name: 'insertFooter'
+                        },
+                        {
+                            el: createTemplateButton('📱 Social', 'social-facebook'),
+                            tooltip: 'Insert Social Icon',
+                            name: 'insertSocial'
+                        },
+                        {
+                            el: createTemplateButton('🔘 CTA', 'cta-email'),
+                            tooltip: 'Insert Call-to-Action',
+                            name: 'insertCTA'
+                        }
+                    ]
                 ]
             });
         }
@@ -358,6 +476,32 @@ async function createCampaign(event) {
     // Get HTML from ToastUI Editor
     const formHtml = campaignEditor ? campaignEditor.getHTML() : '';
 
+    // Get send option
+    const sendOption = document.querySelector('input[name="sendOption"]:checked')?.value || 'draft';
+
+    // Validate recipients for immediate/scheduled sends
+    if ((sendOption === 'now' || sendOption === 'schedule') && selectedRecipients.length === 0) {
+        showNotification('Please select at least one recipient before sending', 'error');
+        return;
+    }
+
+    // Get scheduled date/time if applicable
+    let scheduledFor = null;
+    if (sendOption === 'schedule') {
+        const dateTimeInput = document.getElementById('scheduledDateTime');
+        if (!dateTimeInput.value) {
+            showNotification('Please select a date and time for scheduling', 'error');
+            return;
+        }
+        scheduledFor = new Date(dateTimeInput.value).toISOString();
+
+        // Validate date is in the future
+        if (new Date(scheduledFor) < new Date()) {
+            showNotification('Scheduled time must be in the future', 'error');
+            return;
+        }
+    }
+
     try {
         const result = await window.api.createCampaign({
             name,
@@ -367,16 +511,52 @@ async function createCampaign(event) {
         });
 
         if (result.success || result.id) {
+            const campaignId = result.id;
+
+            // Handle scheduling if applicable
+            if (sendOption === 'schedule' && scheduledFor) {
+                await window.api.scheduleCampaign({
+                    campaignId,
+                    scheduledFor
+                });
+                showNotification(`Campaign scheduled for ${new Date(scheduledFor).toLocaleString()}`, 'success');
+            }
+
+            // Handle immediate send
+            if (sendOption === 'now') {
+                const sendResult = await window.api.sendCampaign({
+                    campaignId,
+                    contactIds: selectedRecipients
+                });
+
+                if (sendResult.success) {
+                    showNotification(`Campaign sent to ${selectedRecipients.length} recipient(s)!`, 'success');
+                } else {
+                    showNotification('Campaign created but sending failed: ' + (sendResult.error || 'Unknown error'), 'error');
+                }
+            }
+
+            // Reset form and state
             closeModal('createCampaignModal');
             document.getElementById('createCampaignForm').reset();
+            selectedRecipients = [];
+            updateRecipientDisplay();
+
+            // Reset send option to draft
+            document.querySelector('input[name="sendOption"][value="draft"]').checked = true;
+            updateSendOptions();
+
             await loadCampaigns();
-            alert('Campaign created successfully!');
+
+            if (sendOption === 'draft') {
+                showNotification('Campaign created as draft', 'success');
+            }
         } else {
-            alert('Failed to create campaign: ' + (result.error || 'Unknown error'));
+            showNotification('Failed to create campaign: ' + (result.error || 'Unknown error'), 'error');
         }
     } catch (error) {
         console.error('Error creating campaign:', error);
-        alert('An error occurred while creating the campaign. Please try again.');
+        showNotification('An error occurred while creating the campaign. Please try again.', 'error');
     }
 }
 
@@ -1203,6 +1383,212 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Save current editor content as template
+async function saveAsTemplate() {
+    if (!campaignEditor) {
+        showNotification('No content to save', 'error');
+        return;
+    }
+
+    const htmlContent = campaignEditor.getHTML();
+    if (!htmlContent || htmlContent.trim() === '') {
+        showNotification('Please add some content before saving as template', 'error');
+        return;
+    }
+
+    // Prompt for template details
+    const name = prompt('Template Name:');
+    if (!name) return;
+
+    const description = prompt('Template Description (optional):');
+
+    const category = prompt('Category (Headers/Footers/Call to Action/Social Icons/Dividers/Content Blocks):', 'Content Blocks');
+    if (!category) return;
+
+    try {
+        const result = await window.api.createCampaignTemplate({
+            name,
+            description: description || '',
+            category,
+            htmlContent,
+            userId: currentUser.userId
+        });
+
+        if (result.success || result.id) {
+            showNotification(`Template "${name}" saved successfully!`, 'success');
+
+            // Reload templates
+            await loadTemplates();
+        } else {
+            showNotification('Failed to save template: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving template:', error);
+        showNotification('Failed to save template', 'error');
+    }
+}
+
+// ===== RECIPIENT SELECTION =====
+
+function selectAllContacts() {
+    if (contacts.length === 0) {
+        showNotification('No contacts available. Please add contacts first.', 'error');
+        return;
+    }
+
+    selectedRecipients = contacts.map(c => c.id);
+    updateRecipientDisplay();
+    showNotification(`All ${contacts.length} contacts selected`, 'success');
+}
+
+function showRecipientSelector() {
+    if (contacts.length === 0) {
+        showNotification('No contacts available. Please add contacts first.', 'error');
+        return;
+    }
+
+    document.getElementById('recipientSelectorModal').classList.add('show');
+    renderRecipientList();
+}
+
+function renderRecipientList(searchTerm = '') {
+    const recipientList = document.getElementById('recipientList');
+    const searchLower = searchTerm.toLowerCase();
+
+    let filteredContacts = contacts;
+    if (searchTerm) {
+        filteredContacts = contacts.filter(c =>
+            c.email.toLowerCase().includes(searchLower) ||
+            (c.first_name && c.first_name.toLowerCase().includes(searchLower)) ||
+            (c.last_name && c.last_name.toLowerCase().includes(searchLower))
+        );
+    }
+
+    if (filteredContacts.length === 0) {
+        recipientList.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">No contacts found</div>';
+        return;
+    }
+
+    recipientList.innerHTML = filteredContacts.map(contact => {
+        const isSelected = selectedRecipients.includes(contact.id);
+        return `
+            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s;"
+                   onmouseover="this.style.background='#f9f9f9'"
+                   onmouseout="this.style.background='white'">
+                <input type="checkbox"
+                       value="${contact.id}"
+                       ${isSelected ? 'checked' : ''}
+                       onchange="toggleRecipient('${contact.id}')"
+                       style="width: 18px; height: 18px; cursor: pointer;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500; color: #333; margin-bottom: 3px;">
+                        ${escapeHtml(contact.first_name || '')} ${escapeHtml(contact.last_name || '')}
+                    </div>
+                    <div style="font-size: 13px; color: #666;">
+                        ${escapeHtml(contact.email)}
+                    </div>
+                </div>
+            </label>
+        `;
+    }).join('');
+
+    updateSelectedCount();
+
+    // Add search listener
+    const searchInput = document.getElementById('recipientSearch');
+    searchInput.oninput = (e) => renderRecipientList(e.target.value);
+}
+
+function toggleRecipient(contactId) {
+    const index = selectedRecipients.indexOf(contactId);
+    if (index > -1) {
+        selectedRecipients.splice(index, 1);
+    } else {
+        selectedRecipients.push(contactId);
+    }
+    updateSelectedCount();
+}
+
+function selectAllRecipientsInList() {
+    const checkboxes = document.querySelectorAll('#recipientList input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = true;
+        const contactId = cb.value;
+        if (!selectedRecipients.includes(contactId)) {
+            selectedRecipients.push(contactId);
+        }
+    });
+    updateSelectedCount();
+}
+
+function deselectAllRecipients() {
+    selectedRecipients = [];
+    const checkboxes = document.querySelectorAll('#recipientList input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const countElem = document.getElementById('selectedCount');
+    if (countElem) {
+        countElem.textContent = selectedRecipients.length;
+    }
+}
+
+function confirmRecipientSelection() {
+    if (selectedRecipients.length === 0) {
+        showNotification('Please select at least one recipient', 'error');
+        return;
+    }
+
+    updateRecipientDisplay();
+    closeModal('recipientSelectorModal');
+    showNotification(`${selectedRecipients.length} recipient(s) selected`, 'success');
+}
+
+function updateRecipientDisplay() {
+    const display = document.getElementById('selectedRecipientsDisplay');
+    if (selectedRecipients.length === 0) {
+        display.innerHTML = 'No recipients selected';
+        display.style.color = '#666';
+    } else {
+        const selectedContacts = contacts.filter(c => selectedRecipients.includes(c.id));
+        const names = selectedContacts.slice(0, 3).map(c => c.email).join(', ');
+        const extra = selectedRecipients.length > 3 ? ` and ${selectedRecipients.length - 3} more` : '';
+        display.innerHTML = `<strong>${selectedRecipients.length} recipient(s):</strong> ${names}${extra}`;
+        display.style.color = '#333';
+    }
+}
+
+// ===== SCHEDULING =====
+
+function updateSendOptions() {
+    const sendOption = document.querySelector('input[name="sendOption"]:checked').value;
+    const scheduleOptions = document.getElementById('scheduleOptions');
+
+    if (sendOption === 'schedule') {
+        scheduleOptions.style.display = 'block';
+
+        // Set default to tomorrow at 9 AM
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0);
+
+        const dateTimeInput = document.getElementById('scheduledDateTime');
+        if (dateTimeInput) {
+            // Format for datetime-local input
+            const year = tomorrow.getFullYear();
+            const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+            const day = String(tomorrow.getDate()).padStart(2, '0');
+            const hours = String(tomorrow.getHours()).padStart(2, '0');
+            const minutes = String(tomorrow.getMinutes()).padStart(2, '0');
+            dateTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+    } else {
+        scheduleOptions.style.display = 'none';
+    }
+}
 
 // Initialize when page loads
 init();

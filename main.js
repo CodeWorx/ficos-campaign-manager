@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
@@ -15,10 +16,49 @@ let mainWindow;
 let db;
 let server;
 
+// Setup logging
+const logDir = path.join(app.getPath('userData'), 'logs');
+const logFile = path.join(logDir, 'app.log');
+
+// Ensure log directory exists
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
+
+// Custom logger that writes to both console and file
+function log(level, message, ...args) {
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] [${level}] ${message} ${args.length > 0 ? JSON.stringify(args) : ''}`;
+
+  // Write to console
+  console.log(logMessage);
+
+  // Write to file
+  try {
+    fs.appendFileSync(logFile, logMessage + '\n');
+  } catch (error) {
+    console.error('Failed to write to log file:', error);
+  }
+}
+
+// Log levels
+const logger = {
+  info: (message, ...args) => log('INFO', message, ...args),
+  error: (message, ...args) => log('ERROR', message, ...args),
+  warn: (message, ...args) => log('WARN', message, ...args),
+  debug: (message, ...args) => log('DEBUG', message, ...args)
+};
+
+// Log app startup
+logger.info('=== FICOS Campaign Manager Starting ===');
+logger.info('App version:', app.getVersion());
+logger.info('User data path:', app.getPath('userData'));
+logger.info('Log file location:', logFile);
+
 // Initialize SQLite database
 function initDatabase() {
   const dbPath = path.join(app.getPath('userData'), 'ficos.db');
-  console.log('[DATABASE] Initializing database at:', dbPath);
+  logger.info('[DATABASE] Initializing database at:', dbPath);
 
   db = new Database(dbPath);
 
@@ -27,7 +67,7 @@ function initDatabase() {
   db.pragma('synchronous = FULL');
   db.pragma('foreign_keys = ON');
 
-  console.log('[DATABASE] WAL mode enabled, synchronous=FULL');
+  logger.info('[DATABASE] WAL mode enabled, synchronous=FULL');
 
   // Create tables
   db.exec(`
@@ -996,6 +1036,18 @@ ipcMain.handle('delete-user', (event, id) => {
 // Quit app (for TOS decline)
 ipcMain.handle('quit-app', () => {
   app.quit();
+});
+
+// Open logs folder
+ipcMain.handle('open-logs', () => {
+  const { shell } = require('electron');
+  shell.openPath(logDir);
+  return { success: true, path: logDir };
+});
+
+// Get log file path
+ipcMain.handle('get-log-path', () => {
+  return { logFile, logDir };
 });
 
 // Complete setup wizard

@@ -696,6 +696,9 @@
             margin-bottom: 15px;
         }
     </style>
+
+    <!-- ToastUI Editor CSS -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
 </head>
 <body>
     <!-- Sidebar -->
@@ -998,53 +1001,13 @@
                     <textarea id="campaignDescription" placeholder="Brief description of this campaign"></textarea>
                 </div>
                 
-                <div class="split-editor">
-                    <div class="editor-pane">
-                        <div class="pane-title">📝 HTML Editor</div>
-                        <div class="html-toolbar">
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<strong></strong>', 8)" title="Bold">B</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<em></em>', 4)" title="Italic"><em>I</em></button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<u></u>', 3)" title="Underline"><u>U</u></button>
-                            <div class="toolbar-separator"></div>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h1></h1>', 4)" title="Heading 1">H1</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h2></h2>', 4)" title="Heading 2">H2</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h3></h3>', 4)" title="Heading 3">H3</button>
-                            <div class="toolbar-separator"></div>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<ul>\n  <li></li>\n</ul>', 12)" title="Bulleted List">• List</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<ol>\n  <li></li>\n</ol>', 12)" title="Numbered List">1. List</button>
-                            <div class="toolbar-separator"></div>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<input type=&quot;text&quot; name=&quot;&quot; placeholder=&quot;&quot;>', 0)" title="Input Field">Input</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<textarea name=&quot;&quot; rows=&quot;4&quot;></textarea>', 0)" title="Textarea">Textarea</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<select name=&quot;&quot;>\n  <option value=&quot;&quot;></option>\n</select>', 0)" title="Dropdown">Dropdown</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<label><input type=&quot;checkbox&quot; name=&quot;&quot;> </label>', 0)" title="Checkbox">Checkbox</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<label><input type=&quot;radio&quot; name=&quot;&quot;> </label>', 0)" title="Radio">Radio</button>
-                            <div class="toolbar-separator"></div>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<a href=&quot;&quot;></a>', 4)" title="Link">Link</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<img src=&quot;&quot; alt=&quot;&quot;>', 0)" title="Image">Image</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<hr>', 0)" title="Horizontal Line">HR</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<button type=&quot;submit&quot;></button>', 9)" title="Submit Button">Submit</button>
-                            <div class="toolbar-separator"></div>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: left;&quot;>\n  \n</div>', 36)" title="Align Left">⬅ Left</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: center;&quot;>\n  \n</div>', 38)" title="Align Center">↔ Center</button>
-                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: right;&quot;>\n  \n</div>', 37)" title="Align Right">➡ Right</button>
-                        </div>
-                        <textarea class="code-editor with-toolbar" id="formHtmlEditor" placeholder="Enter your HTML form here...">
-<form>
-  <label>Name:</label>
-  <input type="text" name="name" required><br><br>
-  
-  <label>Email:</label>
-  <input type="email" name="email" required><br><br>
-  
-  <label>Message:</label>
-  <textarea name="message" rows="4"></textarea><br><br>
-</form></textarea>
-                    </div>
-                    
-                    <div class="editor-pane">
-                        <div class="pane-title">👁️ Live Preview</div>
-                        <div class="preview-frame" id="formPreview"></div>
-                    </div>
+                <div class="form-group">
+                    <label>Campaign Content (WYSIWYG Editor)</label>
+                    <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                        Use the editor below to create your campaign form. Switch between WYSIWYG and HTML modes using the tab buttons in the editor toolbar.
+                    </p>
+                    <!-- ToastUI Editor Container -->
+                    <div id="campaignEditor"></div>
                 </div>
                 
                 <div class="action-buttons">
@@ -1235,6 +1198,9 @@
             </div>
         </div>
     </div>
+
+    <!-- ToastUI Editor JavaScript -->
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
 
     <script src="dashboard.js"></script>
 </body>

@@ -7,6 +7,7 @@ let emailConfigs = [];
 let users = [];
 let companySettings = null;
 let currentLogoBase64 = null;
+let campaignEditor = null; // ToastUI Editor instance
 
 // Initialize dashboard
 async function init() {

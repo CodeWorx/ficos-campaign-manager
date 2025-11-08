@@ -39,9 +39,6 @@ async function init() {
     // Setup navigation
     setupNavigation();
 
-    // Setup form preview
-    setupFormPreview();
-
     // Setup color picker
     setupColorPicker();
 }
@@ -304,6 +301,39 @@ function renderUsers() {
 // Campaign operations
 function showCreateCampaign() {
     document.getElementById('createCampaignModal').classList.add('show');
+
+    // Initialize ToastUI Editor if not already initialized
+    if (!campaignEditor) {
+        const editorEl = document.getElementById('campaignEditor');
+        if (editorEl) {
+            campaignEditor = new toastui.Editor({
+                el: editorEl,
+                height: '500px',
+                initialEditType: 'wysiwyg',
+                previewStyle: 'vertical',
+                initialValue: `<form>
+  <label>Name:</label>
+  <input type="text" name="name" required><br><br>
+
+  <label>Email:</label>
+  <input type="email" name="email" required><br><br>
+
+  <label>Message:</label>
+  <textarea name="message" rows="4"></textarea><br><br>
+
+  <button type="submit">Submit</button>
+</form>`,
+                toolbarItems: [
+                    ['heading', 'bold', 'italic', 'strike'],
+                    ['hr', 'quote'],
+                    ['ul', 'ol', 'task', 'indent', 'outdent'],
+                    ['table', 'link'],
+                    ['code', 'codeblock'],
+                    ['scrollSync']
+                ]
+            });
+        }
+    }
 }
 
 async function createCampaign(event) {
@@ -311,7 +341,9 @@ async function createCampaign(event) {
 
     const name = document.getElementById('campaignName').value;
     const description = document.getElementById('campaignDescription').value;
-    const formHtml = document.getElementById('formHtmlEditor').value;
+
+    // Get HTML from ToastUI Editor
+    const formHtml = campaignEditor ? campaignEditor.getHTML() : '';
 
     try {
         const result = await window.api.createCampaign({
@@ -514,44 +546,6 @@ async function deleteUser(id) {
     await window.api.deleteUser(id);
     await loadUsers();
     alert('User deleted successfully!');
-}
-
-// Form preview
-function setupFormPreview() {
-    const editor = document.getElementById('formHtmlEditor');
-    if (!editor) return;
-    
-    editor.addEventListener('input', updatePreview);
-    updatePreview();
-}
-
-function updatePreview() {
-    const html = document.getElementById('formHtmlEditor')?.value || '';
-    const preview = document.getElementById('formPreview');
-    if (preview) {
-        preview.innerHTML = html;
-    }
-}
-
-// Rich Text Toolbar Functions
-function insertHTML(html, cursorOffset) {
-    const editor = document.getElementById('formHtmlEditor');
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const text = editor.value;
-
-    // Insert HTML at cursor position
-    const before = text.substring(0, start);
-    const after = text.substring(end);
-    editor.value = before + html + after;
-
-    // Set cursor position
-    const newCursorPos = start + html.length - cursorOffset;
-    editor.setSelectionRange(newCursorPos, newCursorPos);
-    editor.focus();
-
-    // Update preview
-    updatePreview();
 }
 
 // User Profile Dropdown Functions

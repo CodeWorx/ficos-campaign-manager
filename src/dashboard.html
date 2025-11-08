@@ -424,16 +424,288 @@
             font-size: 12px;
             letter-spacing: 1px;
         }
+
+        /* Rich Text Toolbar */
+        .html-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px;
+            background: #f5f7fa;
+            border: 2px solid #e0e0e0;
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .toolbar-btn {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .toolbar-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            background: #d0d0d0;
+            margin: 0 5px;
+        }
+
+        .code-editor.with-toolbar {
+            border-radius: 0 0 8px 8px;
+            border-top: none;
+        }
+
+        /* User Profile Dropdown */
+        .user-avatar {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .user-avatar:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            bottom: 60px;
+            left: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 1000;
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            color: #333;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+
+        .dropdown-item:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .dropdown-item:hover {
+            background: #f5f7fa;
+        }
+
+        .dropdown-item.separator {
+            height: 1px;
+            padding: 0;
+            background: #e0e0e0;
+            cursor: default;
+        }
+
+        /* CSV Import */
+        #csvFileInput {
+            display: none;
+        }
+
+        /* Modal form improvements */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group.required label::after {
+            content: ' *';
+            color: #e74c3c;
+        }
+
+        /* Settings Modal Styles */
+        .settings-tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 25px;
+        }
+
+        .settings-tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .settings-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .settings-tab:hover {
+            color: #667eea;
+        }
+
+        .settings-content {
+            display: none;
+        }
+
+        .settings-content.active {
+            display: block;
+        }
+
+        /* Color Picker Styles */
+        .color-picker-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .color-picker {
+            width: 120px;
+            height: 50px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .color-picker:hover {
+            border-color: #667eea;
+        }
+
+        .color-value {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        /* Logo Upload Styles */
+        .logo-upload-area {
+            border: 2px dashed #e0e0e0;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .logo-upload-area:hover {
+            border-color: #667eea;
+            background: #f5f7ff;
+        }
+
+        .logo-upload-area.has-logo {
+            border-style: solid;
+            background: white;
+        }
+
+        .logo-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 0 auto 15px;
+            display: none;
+        }
+
+        .logo-preview.show {
+            display: block;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: #999;
+        }
+
+        #logoFileInput {
+            display: none;
+        }
+
+        /* Sidebar Branding Styles */
+        .sidebar-logo-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 15px;
+            display: none;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+
+        .sidebar-logo-img.show {
+            display: block;
+        }
+
+        .sidebar-attribution {
+            position: absolute;
+            bottom: 90px;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 11px;
+            opacity: 0.7;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .placeholder-section {
+            background: #f8f9fa;
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            color: #999;
+        }
+
+        .placeholder-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <div class="logo-section">
-            <div class="logo-text">FICOS</div>
-            <div class="logo-sub">Campaign Manager</div>
+            <img id="sidebarLogoImg" class="sidebar-logo-img" alt="Company Logo">
+            <div class="logo-text" id="sidebarLogoText">FICOS</div>
+            <div class="logo-sub" id="sidebarLogoSub">Campaign Manager</div>
         </div>
-        
+
         <nav class="nav-menu">
             <div class="nav-item active" data-page="dashboard">
                 <span class="nav-icon">📊</span>
@@ -460,14 +732,25 @@
                 <span>Users</span>
             </div>
         </nav>
-        
+
+        <div class="sidebar-attribution">
+            Powered by FICOS Campaign Manager
+        </div>
+
         <div class="user-section">
             <div class="user-info">
-                <div class="user-avatar" id="userAvatar"></div>
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserDropdown()"></div>
                 <div class="user-details">
                     <div class="user-name" id="userName"></div>
                     <div class="user-role" id="userRole"></div>
                 </div>
+            </div>
+            <div class="user-dropdown" id="userDropdown">
+                <div class="dropdown-item" onclick="viewProfile()">View Profile</div>
+                <div class="dropdown-item" id="settingsDropdownItem" style="display: none;" onclick="openSettings()">Settings</div>
+                <div class="dropdown-item" onclick="returnToSetup()">Return to Setup Wizard</div>
+                <div class="dropdown-item separator"></div>
+                <div class="dropdown-item" onclick="logout()">Sign Out</div>
             </div>
             <button class="logout-btn" onclick="logout()">Sign Out</button>
         </div>
@@ -692,7 +975,10 @@
         </div>
     </div>
     
-    <!-- Modals will go here -->
+    <!-- Hidden file input for CSV import -->
+    <input type="file" id="csvFileInput" accept=".csv" />
+
+    <!-- Modals -->
     <!-- Campaign Creation Modal -->
     <div class="modal" id="createCampaignModal">
         <div class="modal-content" style="max-width: 1200px;">
@@ -715,7 +1001,34 @@
                 <div class="split-editor">
                     <div class="editor-pane">
                         <div class="pane-title">📝 HTML Editor</div>
-                        <textarea class="code-editor" id="formHtmlEditor" placeholder="Enter your HTML form here...">
+                        <div class="html-toolbar">
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<strong></strong>', 8)" title="Bold">B</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<em></em>', 4)" title="Italic"><em>I</em></button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<u></u>', 3)" title="Underline"><u>U</u></button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h1></h1>', 4)" title="Heading 1">H1</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h2></h2>', 4)" title="Heading 2">H2</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<h3></h3>', 4)" title="Heading 3">H3</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<ul>\n  <li></li>\n</ul>', 12)" title="Bulleted List">• List</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<ol>\n  <li></li>\n</ol>', 12)" title="Numbered List">1. List</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<input type=&quot;text&quot; name=&quot;&quot; placeholder=&quot;&quot;>', 0)" title="Input Field">Input</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<textarea name=&quot;&quot; rows=&quot;4&quot;></textarea>', 0)" title="Textarea">Textarea</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<select name=&quot;&quot;>\n  <option value=&quot;&quot;></option>\n</select>', 0)" title="Dropdown">Dropdown</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<label><input type=&quot;checkbox&quot; name=&quot;&quot;> </label>', 0)" title="Checkbox">Checkbox</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<label><input type=&quot;radio&quot; name=&quot;&quot;> </label>', 0)" title="Radio">Radio</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<a href=&quot;&quot;></a>', 4)" title="Link">Link</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<img src=&quot;&quot; alt=&quot;&quot;>', 0)" title="Image">Image</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<hr>', 0)" title="Horizontal Line">HR</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<button type=&quot;submit&quot;></button>', 9)" title="Submit Button">Submit</button>
+                            <div class="toolbar-separator"></div>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: left;&quot;>\n  \n</div>', 36)" title="Align Left">⬅ Left</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: center;&quot;>\n  \n</div>', 38)" title="Align Center">↔ Center</button>
+                            <button type="button" class="toolbar-btn" onclick="insertHTML('<div style=&quot;text-align: right;&quot;>\n  \n</div>', 37)" title="Align Right">➡ Right</button>
+                        </div>
+                        <textarea class="code-editor with-toolbar" id="formHtmlEditor" placeholder="Enter your HTML form here...">
 <form>
   <label>Name:</label>
   <input type="text" name="name" required><br><br>
@@ -741,7 +1054,177 @@
             </form>
         </div>
     </div>
-    
+
+    <!-- Add Contact Modal -->
+    <div class="modal" id="addContactModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add Contact</h2>
+                <button class="close-modal" onclick="closeModal('addContactModal')">&times;</button>
+            </div>
+
+            <form id="addContactForm">
+                <div class="form-group required">
+                    <label>Email</label>
+                    <input type="email" id="contactEmail" required placeholder="contact@example.com">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="contactFirstName" placeholder="John">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="contactLastName" placeholder="Doe">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Company</label>
+                    <input type="text" id="contactCompany" placeholder="Acme Corp">
+                </div>
+
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="tel" id="contactPhone" placeholder="+1 (555) 123-4567">
+                </div>
+
+                <div class="form-group">
+                    <label>Tags</label>
+                    <input type="text" id="contactTags" placeholder="customer, vip (comma-separated)">
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit" class="btn btn-primary">Add Contact</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addContactModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal" id="addUserModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Add User</h2>
+                <button class="close-modal" onclick="closeModal('addUserModal')">&times;</button>
+            </div>
+
+            <form id="addUserForm">
+                <div class="form-group required">
+                    <label>Name</label>
+                    <input type="text" id="userName" required placeholder="John Doe">
+                </div>
+
+                <div class="form-group required">
+                    <label>Email</label>
+                    <input type="email" id="userEmail" required placeholder="user@example.com">
+                </div>
+
+                <div class="form-group required">
+                    <label>Password</label>
+                    <input type="password" id="userPassword" required placeholder="Minimum 8 characters">
+                </div>
+
+                <div class="form-group required">
+                    <label>Role</label>
+                    <select id="userRole" required>
+                        <option value="">Select a role...</option>
+                        <option value="USER">User</option>
+                        <option value="ADMIN">Admin</option>
+                    </select>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit" class="btn btn-primary">Create User</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Settings</h2>
+                <button class="close-modal" onclick="closeModal('settingsModal')">&times;</button>
+            </div>
+
+            <!-- Settings Tabs -->
+            <div class="settings-tabs">
+                <button class="settings-tab active" onclick="switchSettingsTab('branding')">Company Branding</button>
+                <button class="settings-tab" onclick="switchSettingsTab('email')">Email Settings</button>
+                <button class="settings-tab" onclick="switchSettingsTab('preferences')">User Preferences</button>
+            </div>
+
+            <!-- Company Branding Tab -->
+            <div class="settings-content active" id="brandingSettings">
+                <form id="brandingForm">
+                    <div class="form-group">
+                        <label>Company Name</label>
+                        <input type="text" id="settingsCompanyName" placeholder="FICOS Campaign Manager">
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            This will replace "FICOS" in the sidebar
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Brand Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="settingsBrandColor" class="color-picker" value="#667eea">
+                            <span class="color-value" id="colorValue">#667eea</span>
+                        </div>
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            This color will be used for the sidebar gradient and buttons
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Company Logo</label>
+                        <div class="logo-upload-area" id="logoUploadArea" onclick="triggerLogoUpload()">
+                            <img id="logoPreview" class="logo-preview" alt="Logo Preview">
+                            <div id="uploadPrompt">
+                                <div class="upload-icon">📷</div>
+                                <div class="upload-text">Click to upload company logo</div>
+                                <div class="upload-hint">Recommended: Square image, at least 200x200px</div>
+                            </div>
+                        </div>
+                        <input type="file" id="logoFileInput" accept="image/*" onchange="handleLogoUpload(event)">
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 8px;">
+                            Logo will be displayed in the sidebar (circular)
+                        </small>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('settingsModal')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Email Settings Tab -->
+            <div class="settings-content" id="emailSettings">
+                <div class="placeholder-section">
+                    <div class="placeholder-icon">📧</div>
+                    <h3 style="color: #666; margin-bottom: 10px;">Email Settings</h3>
+                    <p>Configure SMTP settings from the Email Settings page in the main navigation.</p>
+                </div>
+            </div>
+
+            <!-- User Preferences Tab -->
+            <div class="settings-content" id="preferencesSettings">
+                <div class="placeholder-section">
+                    <div class="placeholder-icon">⚙️</div>
+                    <h3 style="color: #666; margin-bottom: 10px;">User Preferences</h3>
+                    <p>User preferences and account settings coming soon.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="dashboard.js"></script>
 </body>
 </html>

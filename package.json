@@ -25,9 +25,7 @@
       "**/*",
       "!**/*.ts",
       "!*.map",
-      "!dist",
-      "!node_modules",
-      "node_modules/better-sqlite3/**/*"
+      "!dist"
     ],
     "win": {
       "target": ["nsis"],

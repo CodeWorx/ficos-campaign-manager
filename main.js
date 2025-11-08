@@ -18,8 +18,17 @@ let server;
 // Initialize SQLite database
 function initDatabase() {
   const dbPath = path.join(app.getPath('userData'), 'ficos.db');
+  console.log('[DATABASE] Initializing database at:', dbPath);
+
   db = new Database(dbPath);
-  
+
+  // Enable WAL mode for better concurrency and crash recovery
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = FULL');
+  db.pragma('foreign_keys = ON');
+
+  console.log('[DATABASE] WAL mode enabled, synchronous=FULL');
+
   // Create tables
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -991,69 +1000,103 @@ ipcMain.handle('quit-app', () => {
 
 // Complete setup wizard
 ipcMain.handle('complete-setup', async (event, data) => {
-  try {
-    const { companyName, name, email, password, brandColor, logoData, smtp, csvData, deviceContacts } = data;
-    
-    // Create owner account
-    const userId = uuidv4();
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    db.prepare('INSERT INTO users (id, email, name, password, role) VALUES (?, ?, ?, ?, ?)')
-      .run(userId, email, name, hashedPassword, 'OWNER');
-    
-    // Save company settings
-    db.prepare(`
-      INSERT OR REPLACE INTO company_settings (id, company_name, company_logo, brand_color, tos_accepted, tos_accepted_date, tos_version)
-      VALUES ('default', ?, ?, ?, 1, ?, '3.0')
-    `).run(companyName, logoData || null, brandColor || '#667eea', new Date().toISOString());
-    
-    // Save SMTP config if provided
-    if (smtp && smtp.host) {
-      const configId = uuidv4();
+  const setupTransaction = db.transaction(() => {
+    try {
+      const { companyName, name, email, password, brandColor, logoData, smtp, csvData, deviceContacts } = data;
+
+      console.log('[SETUP] Starting setup for:', email);
+
+      // Create owner account
+      const userId = uuidv4();
+      const hashedPassword = bcrypt.hashSync(password, 10);
+
+      db.prepare('INSERT INTO users (id, email, name, password, role) VALUES (?, ?, ?, ?, ?)')
+        .run(userId, email, name, hashedPassword, 'OWNER');
+
+      console.log('[SETUP] Owner account created:', userId);
+
+      // Save company settings
       db.prepare(`
-        INSERT INTO email_configs (id, name, smtp_host, smtp_port, smtp_user, smtp_password, from_email, from_name, is_default)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-      `).run(configId, 'Default', smtp.host, smtp.port, smtp.user, smtp.password, smtp.user, smtp.fromName || companyName);
-    }
-    
-    // Import CSV contacts if provided
-    if (csvData) {
-      const Papa = require('papaparse');
-      const parsed = Papa.parse(csvData, { header: true });
-      
-      for (const row of parsed.data) {
-        if (row.email) {
-          const contactId = uuidv4();
-          try {
-            db.prepare('INSERT INTO contacts (id, email, first_name, last_name, company, phone) VALUES (?, ?, ?, ?, ?, ?)')
-              .run(contactId, row.email, row.first_name || row.name || '', row.last_name || '', row.company || '', row.phone || '');
-          } catch (err) {
-            console.error('Error importing contact:', err);
+        INSERT OR REPLACE INTO company_settings (id, company_name, company_logo, brand_color, tos_accepted, tos_accepted_date, tos_version)
+        VALUES ('default', ?, ?, ?, 1, ?, '3.0')
+      `).run(companyName || 'FICOS', logoData || null, brandColor || '#667eea', new Date().toISOString());
+
+      console.log('[SETUP] Company settings saved');
+
+      // Save SMTP config if provided
+      if (smtp && smtp.host) {
+        const configId = uuidv4();
+        db.prepare(`
+          INSERT INTO email_configs (id, name, smtp_host, smtp_port, smtp_user, smtp_password, from_email, from_name, is_default)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        `).run(configId, 'Default', smtp.host, smtp.port, smtp.user, smtp.password, smtp.user, smtp.fromName || companyName);
+
+        console.log('[SETUP] SMTP config saved');
+      }
+
+      // Import CSV contacts if provided
+      if (csvData) {
+        const Papa = require('papaparse');
+        const parsed = Papa.parse(csvData, { header: true });
+
+        let contactCount = 0;
+        for (const row of parsed.data) {
+          if (row.email) {
+            const contactId = uuidv4();
+            try {
+              db.prepare('INSERT INTO contacts (id, email, first_name, last_name, company, phone) VALUES (?, ?, ?, ?, ?, ?)')
+                .run(contactId, row.email, row.first_name || row.name || '', row.last_name || '', row.company || '', row.phone || '');
+              contactCount++;
+            } catch (err) {
+              console.error('[SETUP] Error importing contact:', err);
+            }
           }
         }
+
+        console.log('[SETUP] Imported', contactCount, 'CSV contacts');
       }
-    }
-    
-    // Import device contacts if provided
-    if (deviceContacts && deviceContacts.length > 0) {
-      for (const contact of deviceContacts) {
-        if (contact.email) {
-          const contactId = uuidv4();
-          try {
-            db.prepare('INSERT INTO contacts (id, email, first_name, company, phone) VALUES (?, ?, ?, ?, ?)')
-              .run(contactId, contact.email, contact.name || '', contact.company || '', contact.phone || '');
-          } catch (err) {
-            console.error('Error importing device contact:', err);
+
+      // Import device contacts if provided
+      if (deviceContacts && deviceContacts.length > 0) {
+        let deviceContactCount = 0;
+        for (const contact of deviceContacts) {
+          if (contact.email) {
+            const contactId = uuidv4();
+            try {
+              db.prepare('INSERT INTO contacts (id, email, first_name, company, phone) VALUES (?, ?, ?, ?, ?)')
+                .run(contactId, contact.email, contact.name || '', contact.company || '', contact.phone || '');
+              deviceContactCount++;
+            } catch (err) {
+              console.error('[SETUP] Error importing device contact:', err);
+            }
           }
         }
+
+        console.log('[SETUP] Imported', deviceContactCount, 'device contacts');
       }
+
+      logAudit(userId, 'SETUP_COMPLETED', 'SYSTEM', 'setup', 'Initial setup completed');
+
+      console.log('[SETUP] Setup completed successfully');
+
+      return { success: true, userId };
+    } catch (error) {
+      console.error('[SETUP] Setup transaction error:', error);
+      throw error;
     }
-    
-    logAudit(userId, 'SETUP_COMPLETED', 'SYSTEM', 'setup', 'Initial setup completed');
-    
-    return { success: true };
+  });
+
+  try {
+    const result = setupTransaction();
+
+    // Force database to flush to disk
+    db.pragma('wal_checkpoint(TRUNCATE)');
+
+    console.log('[SETUP] Database checkpointed and flushed');
+
+    return result;
   } catch (error) {
-    console.error('Setup error:', error);
+    console.error('[SETUP] Fatal setup error:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1282,7 +1325,11 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    if (db) db.close();
+    if (db) {
+      console.log('[DATABASE] Closing database on window-all-closed');
+      db.pragma('wal_checkpoint(TRUNCATE)');
+      db.close();
+    }
     app.quit();
   }
 });
@@ -1290,6 +1337,13 @@ app.on('window-all-closed', () => {
 // Cleanup on quit
 app.on('before-quit', () => {
   if (db) {
-    db.close();
+    console.log('[DATABASE] Closing database on before-quit');
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+      db.close();
+      console.log('[DATABASE] Database closed successfully');
+    } catch (error) {
+      console.error('[DATABASE] Error closing database:', error);
+    }
   }
 });

@@ -537,16 +537,175 @@
             content: ' *';
             color: #e74c3c;
         }
+
+        /* Settings Modal Styles */
+        .settings-tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 25px;
+        }
+
+        .settings-tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .settings-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .settings-tab:hover {
+            color: #667eea;
+        }
+
+        .settings-content {
+            display: none;
+        }
+
+        .settings-content.active {
+            display: block;
+        }
+
+        /* Color Picker Styles */
+        .color-picker-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .color-picker {
+            width: 120px;
+            height: 50px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .color-picker:hover {
+            border-color: #667eea;
+        }
+
+        .color-value {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        /* Logo Upload Styles */
+        .logo-upload-area {
+            border: 2px dashed #e0e0e0;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9fa;
+        }
+
+        .logo-upload-area:hover {
+            border-color: #667eea;
+            background: #f5f7ff;
+        }
+
+        .logo-upload-area.has-logo {
+            border-style: solid;
+            background: white;
+        }
+
+        .logo-preview {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 0 auto 15px;
+            display: none;
+        }
+
+        .logo-preview.show {
+            display: block;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: #999;
+        }
+
+        #logoFileInput {
+            display: none;
+        }
+
+        /* Sidebar Branding Styles */
+        .sidebar-logo-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 15px;
+            display: none;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+
+        .sidebar-logo-img.show {
+            display: block;
+        }
+
+        .sidebar-attribution {
+            position: absolute;
+            bottom: 90px;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            text-align: center;
+            font-size: 11px;
+            opacity: 0.7;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .placeholder-section {
+            background: #f8f9fa;
+            padding: 40px;
+            text-align: center;
+            border-radius: 8px;
+            color: #999;
+        }
+
+        .placeholder-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <div class="logo-section">
-            <div class="logo-text">FICOS</div>
-            <div class="logo-sub">Campaign Manager</div>
+            <img id="sidebarLogoImg" class="sidebar-logo-img" alt="Company Logo">
+            <div class="logo-text" id="sidebarLogoText">FICOS</div>
+            <div class="logo-sub" id="sidebarLogoSub">Campaign Manager</div>
         </div>
-        
+
         <nav class="nav-menu">
             <div class="nav-item active" data-page="dashboard">
                 <span class="nav-icon">📊</span>
@@ -573,7 +732,11 @@
                 <span>Users</span>
             </div>
         </nav>
-        
+
+        <div class="sidebar-attribution">
+            Powered by FICOS Campaign Manager
+        </div>
+
         <div class="user-section">
             <div class="user-info">
                 <div class="user-avatar" id="userAvatar" onclick="toggleUserDropdown()"></div>
@@ -979,6 +1142,86 @@
                     <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">Cancel</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Settings</h2>
+                <button class="close-modal" onclick="closeModal('settingsModal')">&times;</button>
+            </div>
+
+            <!-- Settings Tabs -->
+            <div class="settings-tabs">
+                <button class="settings-tab active" onclick="switchSettingsTab('branding')">Company Branding</button>
+                <button class="settings-tab" onclick="switchSettingsTab('email')">Email Settings</button>
+                <button class="settings-tab" onclick="switchSettingsTab('preferences')">User Preferences</button>
+            </div>
+
+            <!-- Company Branding Tab -->
+            <div class="settings-content active" id="brandingSettings">
+                <form id="brandingForm">
+                    <div class="form-group">
+                        <label>Company Name</label>
+                        <input type="text" id="settingsCompanyName" placeholder="FICOS Campaign Manager">
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            This will replace "FICOS" in the sidebar
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Brand Color</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" id="settingsBrandColor" class="color-picker" value="#667eea">
+                            <span class="color-value" id="colorValue">#667eea</span>
+                        </div>
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            This color will be used for the sidebar gradient and buttons
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Company Logo</label>
+                        <div class="logo-upload-area" id="logoUploadArea" onclick="triggerLogoUpload()">
+                            <img id="logoPreview" class="logo-preview" alt="Logo Preview">
+                            <div id="uploadPrompt">
+                                <div class="upload-icon">📷</div>
+                                <div class="upload-text">Click to upload company logo</div>
+                                <div class="upload-hint">Recommended: Square image, at least 200x200px</div>
+                            </div>
+                        </div>
+                        <input type="file" id="logoFileInput" accept="image/*" onchange="handleLogoUpload(event)">
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 8px;">
+                            Logo will be displayed in the sidebar (circular)
+                        </small>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('settingsModal')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Email Settings Tab -->
+            <div class="settings-content" id="emailSettings">
+                <div class="placeholder-section">
+                    <div class="placeholder-icon">📧</div>
+                    <h3 style="color: #666; margin-bottom: 10px;">Email Settings</h3>
+                    <p>Configure SMTP settings from the Email Settings page in the main navigation.</p>
+                </div>
+            </div>
+
+            <!-- User Preferences Tab -->
+            <div class="settings-content" id="preferencesSettings">
+                <div class="placeholder-section">
+                    <div class="placeholder-icon">⚙️</div>
+                    <h3 style="color: #666; margin-bottom: 10px;">User Preferences</h3>
+                    <p>User preferences and account settings coming soon.</p>
+                </div>
+            </div>
         </div>
     </div>
 

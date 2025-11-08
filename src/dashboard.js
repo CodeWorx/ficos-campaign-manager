@@ -5,36 +5,44 @@ let contacts = [];
 let responses = [];
 let emailConfigs = [];
 let users = [];
+let companySettings = null;
+let currentLogoBase64 = null;
 
 // Initialize dashboard
 async function init() {
     // Get current session
     currentUser = await window.api.getSession();
-    
+
     if (!currentUser) {
         window.location.href = 'login.html';
         return;
     }
-    
+
     // Update user info in sidebar
     document.getElementById('userName').textContent = currentUser.name;
     document.getElementById('userRole').textContent = currentUser.role;
     document.getElementById('userAvatar').textContent = currentUser.name.charAt(0).toUpperCase();
-    
+
     // Show users menu only for OWNER
     if (currentUser.role === 'OWNER') {
         document.getElementById('usersNav').style.display = 'flex';
         document.getElementById('settingsDropdownItem').style.display = 'block';
     }
-    
+
+    // Load and apply company settings
+    await loadAndApplyCompanySettings();
+
     // Load initial data
     await loadDashboard();
-    
+
     // Setup navigation
     setupNavigation();
-    
+
     // Setup form preview
     setupFormPreview();
+
+    // Setup color picker
+    setupColorPicker();
 }
 
 // Setup navigation
@@ -569,7 +577,29 @@ function viewProfile() {
 function openSettings() {
     const dropdown = document.getElementById('userDropdown');
     dropdown.classList.remove('show');
-    alert('Settings page coming soon!');
+
+    // Load current settings into the form
+    if (companySettings) {
+        document.getElementById('settingsCompanyName').value = companySettings.company_name || '';
+        document.getElementById('settingsBrandColor').value = companySettings.brand_color || '#667eea';
+        document.getElementById('colorValue').textContent = companySettings.brand_color || '#667eea';
+
+        // Show logo preview if exists
+        if (companySettings.company_logo) {
+            const logoPreview = document.getElementById('logoPreview');
+            const uploadPrompt = document.getElementById('uploadPrompt');
+            const uploadArea = document.getElementById('logoUploadArea');
+
+            logoPreview.src = companySettings.company_logo;
+            logoPreview.classList.add('show');
+            uploadPrompt.style.display = 'none';
+            uploadArea.classList.add('has-logo');
+            currentLogoBase64 = companySettings.company_logo;
+        }
+    }
+
+    // Show the modal
+    document.getElementById('settingsModal').classList.add('show');
 }
 
 function returnToSetup() {
@@ -595,6 +625,246 @@ async function logout() {
     window.location.href = 'login.html';
 }
 
+// Company Branding Functions
+async function loadAndApplyCompanySettings() {
+    try {
+        companySettings = await window.api.getCompanySettings();
+        if (companySettings) {
+            applyBrandingToUI(companySettings);
+        }
+    } catch (error) {
+        console.error('Error loading company settings:', error);
+        // Use defaults if settings don't exist
+        companySettings = {
+            company_name: '',
+            brand_color: '#667eea',
+            company_logo: null
+        };
+    }
+}
+
+function applyBrandingToUI(settings) {
+    const companyName = settings.company_name || 'FICOS';
+    const brandColor = settings.brand_color || '#667eea';
+    const companyLogo = settings.company_logo;
+
+    // Update sidebar company name
+    const logoText = document.getElementById('sidebarLogoText');
+    const logoSub = document.getElementById('sidebarLogoSub');
+
+    if (companyName && companyName !== 'FICOS') {
+        logoText.textContent = companyName;
+        logoSub.style.display = 'none';
+    } else {
+        logoText.textContent = 'FICOS';
+        logoSub.textContent = 'Campaign Manager';
+        logoSub.style.display = 'block';
+    }
+
+    // Update sidebar logo
+    const logoImg = document.getElementById('sidebarLogoImg');
+    if (companyLogo) {
+        logoImg.src = companyLogo;
+        logoImg.classList.add('show');
+        logoText.style.fontSize = '18px';
+    } else {
+        logoImg.classList.remove('show');
+        logoText.style.fontSize = '28px';
+    }
+
+    // Apply brand color to sidebar and buttons
+    applyBrandColor(brandColor);
+
+    // Update page title
+    if (companyName && companyName !== 'FICOS') {
+        document.title = `Dashboard - ${companyName}`;
+    }
+}
+
+function applyBrandColor(color) {
+    const sidebar = document.getElementById('sidebar');
+    const darkerColor = generateDarkerShade(color);
+
+    // Create gradient for sidebar
+    sidebar.style.background = `linear-gradient(180deg, ${color} 0%, ${darkerColor} 100%)`;
+
+    // Create or update style tag for dynamic colors
+    let styleTag = document.getElementById('dynamic-brand-styles');
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'dynamic-brand-styles';
+        document.head.appendChild(styleTag);
+    }
+
+    styleTag.textContent = `
+        .stat-value {
+            color: ${color} !important;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, ${color}, ${darkerColor}) !important;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 8px 20px ${color}66 !important;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: ${color} !important;
+        }
+        .settings-tab.active {
+            color: ${color} !important;
+            border-bottom-color: ${color} !important;
+        }
+        .settings-tab:hover {
+            color: ${color} !important;
+        }
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1) !important;
+        }
+        .nav-item.active {
+            background: rgba(255,255,255,0.15) !important;
+            border-left: 3px solid white !important;
+        }
+        .toolbar-btn:hover {
+            background: ${color} !important;
+            color: white !important;
+            border-color: ${color} !important;
+        }
+        .logo-upload-area:hover {
+            border-color: ${color} !important;
+        }
+        .upload-icon {
+            color: ${color} !important;
+        }
+    `;
+}
+
+function generateDarkerShade(hexColor) {
+    // Convert hex to RGB
+    let r = parseInt(hexColor.slice(1, 3), 16);
+    let g = parseInt(hexColor.slice(3, 5), 16);
+    let b = parseInt(hexColor.slice(5, 7), 16);
+
+    // Darken by 20%
+    r = Math.floor(r * 0.7);
+    g = Math.floor(g * 0.7);
+    b = Math.floor(b * 0.7);
+
+    // Convert back to hex
+    return '#' + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+}
+
+function switchSettingsTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.settings-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    // Update content sections
+    document.querySelectorAll('.settings-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    const contentMap = {
+        'branding': 'brandingSettings',
+        'email': 'emailSettings',
+        'preferences': 'preferencesSettings'
+    };
+
+    const contentId = contentMap[tabName];
+    if (contentId) {
+        document.getElementById(contentId).classList.add('active');
+    }
+}
+
+function setupColorPicker() {
+    const colorPicker = document.getElementById('settingsBrandColor');
+    const colorValue = document.getElementById('colorValue');
+
+    if (colorPicker && colorValue) {
+        colorPicker.addEventListener('input', function() {
+            colorValue.textContent = this.value.toUpperCase();
+        });
+    }
+}
+
+function triggerLogoUpload() {
+    document.getElementById('logoFileInput').click();
+}
+
+function handleLogoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check if it's an image
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+    }
+
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+    }
+
+    // Read and convert to base64
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64String = e.target.result;
+        currentLogoBase64 = base64String;
+
+        // Show preview
+        const logoPreview = document.getElementById('logoPreview');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        const uploadArea = document.getElementById('logoUploadArea');
+
+        logoPreview.src = base64String;
+        logoPreview.classList.add('show');
+        uploadPrompt.style.display = 'none';
+        uploadArea.classList.add('has-logo');
+    };
+
+    reader.readAsDataURL(file);
+}
+
+async function saveCompanySettings(event) {
+    event.preventDefault();
+
+    const companyName = document.getElementById('settingsCompanyName').value.trim();
+    const brandColor = document.getElementById('settingsBrandColor').value;
+
+    const settingsData = {
+        company_name: companyName || 'FICOS',
+        brand_color: brandColor,
+        company_logo: currentLogoBase64
+    };
+
+    try {
+        const result = await window.api.updateCompanySettings(settingsData);
+
+        if (result.success || result.id !== undefined) {
+            // Update local state
+            companySettings = settingsData;
+
+            // Apply the new branding immediately
+            applyBrandingToUI(settingsData);
+
+            // Close modal
+            closeModal('settingsModal');
+
+            alert('Company branding updated successfully!');
+        } else {
+            alert('Failed to update settings: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving company settings:', error);
+        alert('Failed to save settings. Please try again.');
+    }
+}
+
 // Setup form submissions
 document.addEventListener('DOMContentLoaded', function() {
     const createCampaignForm = document.getElementById('createCampaignForm');
@@ -610,6 +880,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const addUserForm = document.getElementById('addUserForm');
     if (addUserForm) {
         addUserForm.addEventListener('submit', addUser);
+    }
+
+    const brandingForm = document.getElementById('brandingForm');
+    if (brandingForm) {
+        brandingForm.addEventListener('submit', saveCompanySettings);
     }
 });
 

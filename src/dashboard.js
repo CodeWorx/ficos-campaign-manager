@@ -598,6 +598,9 @@ function openSettings() {
         }
     }
 
+    // Load log path
+    loadLogPath();
+
     // Show the modal
     document.getElementById('settingsModal').classList.add('show');
 }
@@ -862,6 +865,32 @@ async function saveCompanySettings(event) {
     } catch (error) {
         console.error('Error saving company settings:', error);
         alert('Failed to save settings. Please try again.');
+    }
+}
+
+// Open logs folder
+async function openLogsFolder() {
+    try {
+        const result = await window.api.openLogs();
+        if (result.success) {
+            alert('Opening logs folder...\n\nPath: ' + result.path);
+        }
+    } catch (error) {
+        console.error('Error opening logs:', error);
+        alert('Failed to open logs folder');
+    }
+}
+
+// Load log path on settings open
+async function loadLogPath() {
+    try {
+        const logInfo = await window.api.getLogPath();
+        const logPathEl = document.getElementById('logPathInfo');
+        if (logPathEl && logInfo.logFile) {
+            logPathEl.textContent = 'Log file: ' + logInfo.logFile;
+        }
+    } catch (error) {
+        console.error('Error getting log path:', error);
     }
 }
 

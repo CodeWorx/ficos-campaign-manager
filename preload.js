@@ -88,5 +88,9 @@ contextBridge.exposeInMainWorld('api', {
   getUserActivity: (userId) => ipcRenderer.invoke('get-user-activity', userId),
   
   // NEW: Company Settings (expanded)
-  updateCompanySettings: (data) => ipcRenderer.invoke('update-company-settings', data)
+  updateCompanySettings: (data) => ipcRenderer.invoke('update-company-settings', data),
+
+  // NEW: Logging
+  openLogs: () => ipcRenderer.invoke('open-logs'),
+  getLogPath: () => ipcRenderer.invoke('get-log-path')
 });

@@ -239,9 +239,231 @@ function initDatabase() {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS campaign_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      category TEXT NOT NULL,
+      html_content TEXT NOT NULL,
+      thumbnail TEXT,
+      is_system INTEGER DEFAULT 0,
+      created_by TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    );
   `);
 
   console.log('Database initialized at:', dbPath);
+
+  // Populate default templates if they don't exist
+  populateDefaultTemplates();
+}
+
+// Populate default campaign templates
+function populateDefaultTemplates() {
+  const count = db.prepare('SELECT COUNT(*) as count FROM campaign_templates WHERE is_system = 1').get();
+
+  if (count.count > 0) {
+    console.log('Default templates already exist, skipping...');
+    return;
+  }
+
+  console.log('Populating default campaign templates...');
+
+  const templates = [
+    // Headers
+    {
+      id: 'header-logo-center',
+      name: 'Centered Header with Logo',
+      description: 'Professional header with centered company logo and name',
+      category: 'Headers',
+      html_content: `<div style="text-align: center; padding: 40px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+  <img src="{{company_logo}}" alt="{{company_name}}" style="max-width: 200px; margin-bottom: 20px;" />
+  <h1 style="margin: 0; font-size: 32px; font-weight: bold;">{{company_name}}</h1>
+</div>`
+    },
+    {
+      id: 'header-simple',
+      name: 'Simple Header',
+      description: 'Clean header with company name',
+      category: 'Headers',
+      html_content: `<div style="padding: 30px 20px; background-color: #667eea; color: white; border-bottom: 4px solid #764ba2;">
+  <h1 style="margin: 0; font-size: 28px;">{{company_name}}</h1>
+</div>`
+    },
+
+    // Footers
+    {
+      id: 'footer-social-links',
+      name: 'Footer with Social Links',
+      description: 'Footer with social media icons and links',
+      category: 'Footers',
+      html_content: `<div style="padding: 40px 20px; background-color: #f5f5f5; text-align: center; border-top: 1px solid #ddd;">
+  <p style="margin: 0 0 20px 0; color: #666;">Connect with us:</p>
+  <div style="margin-bottom: 20px;">
+    <a href="https://facebook.com" style="margin: 0 10px; text-decoration: none;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%233b5998'%3E%3Cpath d='M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z'/%3E%3C/svg%3E" alt="Facebook" style="width: 32px; height: 32px;" />
+    </a>
+    <a href="https://twitter.com" style="margin: 0 10px; text-decoration: none;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%231DA1F2'%3E%3Cpath d='M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z'/%3E%3C/svg%3E" alt="Twitter" style="width: 32px; height: 32px;" />
+    </a>
+    <a href="https://linkedin.com" style="margin: 0 10px; text-decoration: none;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='%230077b5'%3E%3Cpath d='M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z'/%3E%3C/svg%3E" alt="LinkedIn" style="width: 32px; height: 32px;" />
+    </a>
+    <a href="https://instagram.com" style="margin: 0 10px; text-decoration: none;">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='url(%23instagram-gradient)'%3E%3Cdefs%3E%3ClinearGradient id='instagram-gradient' x1='0%25' y1='100%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' style='stop-color:%23feda75'/%3E%3Cstop offset='50%25' style='stop-color:%23fa7e1e'/%3E%3Cstop offset='100%25' style='stop-color:%23d62976'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z'/%3E%3C/svg%3E" alt="Instagram" style="width: 32px; height: 32px;" />
+    </a>
+  </div>
+  <p style="margin: 0; color: #999; font-size: 12px;">&copy; {{year}} {{company_name}}. All rights reserved.</p>
+</div>`
+    },
+    {
+      id: 'footer-simple',
+      name: 'Simple Footer',
+      description: 'Minimal footer with copyright',
+      category: 'Footers',
+      html_content: `<div style="padding: 20px; background-color: #333; color: white; text-align: center;">
+  <p style="margin: 0; font-size: 14px;">&copy; {{year}} {{company_name}}. All rights reserved.</p>
+</div>`
+    },
+
+    // Call to Action Buttons
+    {
+      id: 'cta-email',
+      name: 'Email Call-to-Action',
+      description: 'Button to contact via email',
+      category: 'Call to Action',
+      html_content: `<div style="text-align: center; padding: 20px;">
+  <a href="mailto:contact@company.com" style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+    Email Us
+  </a>
+</div>`
+    },
+    {
+      id: 'cta-phone',
+      name: 'Phone Call-to-Action',
+      description: 'Button to call phone number',
+      category: 'Call to Action',
+      html_content: `<div style="text-align: center; padding: 20px;">
+  <a href="tel:+1234567890" style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+    Call Us: (123) 456-7890
+  </a>
+</div>`
+    },
+    {
+      id: 'cta-website',
+      name: 'Visit Website Button',
+      description: 'Button to visit website',
+      category: 'Call to Action',
+      html_content: `<div style="text-align: center; padding: 20px;">
+  <a href="https://www.yourwebsite.com" style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #3498db, #2980b9); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+    Visit Our Website
+  </a>
+</div>`
+    },
+
+    // Social Media Icons
+    {
+      id: 'social-facebook',
+      name: 'Facebook Icon Link',
+      description: 'Single Facebook icon with link',
+      category: 'Social Icons',
+      html_content: `<a href="https://facebook.com/yourpage" style="display: inline-block; margin: 5px;">
+  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%233b5998'%3E%3Cpath d='M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z'/%3E%3C/svg%3E" alt="Facebook" style="width: 40px; height: 40px;" />
+</a>`
+    },
+    {
+      id: 'social-twitter',
+      name: 'Twitter Icon Link',
+      description: 'Single Twitter icon with link',
+      category: 'Social Icons',
+      html_content: `<a href="https://twitter.com/yourhandle" style="display: inline-block; margin: 5px;">
+  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%231DA1F2'%3E%3Cpath d='M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z'/%3E%3C/svg%3E" alt="Twitter" style="width: 40px; height: 40px;" />
+</a>`
+    },
+    {
+      id: 'social-linkedin',
+      name: 'LinkedIn Icon Link',
+      description: 'Single LinkedIn icon with link',
+      category: 'Social Icons',
+      html_content: `<a href="https://linkedin.com/company/yourcompany" style="display: inline-block; margin: 5px;">
+  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%230077b5'%3E%3Cpath d='M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z'/%3E%3C/svg%3E" alt="LinkedIn" style="width: 40px; height: 40px;" />
+</a>`
+    },
+    {
+      id: 'social-instagram',
+      name: 'Instagram Icon Link',
+      description: 'Single Instagram icon with link',
+      category: 'Social Icons',
+      html_content: `<a href="https://instagram.com/yourprofile" style="display: inline-block; margin: 5px;">
+  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24'%3E%3Cdefs%3E%3CradialGradient id='ig' cx='30%25' cy='107%25'%3E%3Cstop offset='0%25' stop-color='%23fdf497'/%3E%3Cstop offset='5%25' stop-color='%23fdf497'/%3E%3Cstop offset='45%25' stop-color='%23fd5949'/%3E%3Cstop offset='60%25' stop-color='%23d6249f'/%3E%3Cstop offset='90%25' stop-color='%23285AEB'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath fill='url(%23ig)' d='M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z'/%3E%3C/svg%3E" alt="Instagram" style="width: 40px; height: 40px;" />
+</a>`
+    },
+    {
+      id: 'social-youtube',
+      name: 'YouTube Icon Link',
+      description: 'Single YouTube icon with link',
+      category: 'Social Icons',
+      html_content: `<a href="https://youtube.com/yourchannel" style="display: inline-block; margin: 5px;">
+  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='%23FF0000'%3E%3Cpath d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/%3E%3C/svg%3E" alt="YouTube" style="width: 40px; height: 40px;" />
+</a>`
+    },
+
+    // Dividers
+    {
+      id: 'divider-solid',
+      name: 'Solid Line Divider',
+      description: 'Simple horizontal line separator',
+      category: 'Dividers',
+      html_content: `<hr style="border: none; border-top: 2px solid #ddd; margin: 30px 0;" />`
+    },
+    {
+      id: 'divider-gradient',
+      name: 'Gradient Divider',
+      description: 'Colorful gradient line separator',
+      category: 'Dividers',
+      html_content: `<hr style="border: none; height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); margin: 30px 0;" />`
+    },
+
+    // Content Blocks
+    {
+      id: 'content-text-image',
+      name: 'Text with Image (Side by Side)',
+      description: 'Two-column layout with text and image',
+      category: 'Content Blocks',
+      html_content: `<div style="display: flex; gap: 30px; padding: 40px 20px; align-items: center;">
+  <div style="flex: 1;">
+    <h2 style="margin-top: 0; color: #333;">Your Heading Here</h2>
+    <p style="color: #666; line-height: 1.6;">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+  </div>
+  <div style="flex: 1;">
+    <img src="https://via.placeholder.com/400x300" alt="Placeholder" style="width: 100%; border-radius: 8px;" />
+  </div>
+</div>`
+    },
+    {
+      id: 'content-centered-text',
+      name: 'Centered Text Block',
+      description: 'Centered text content section',
+      category: 'Content Blocks',
+      html_content: `<div style="text-align: center; padding: 60px 20px; max-width: 700px; margin: 0 auto;">
+  <h2 style="margin-top: 0; font-size: 32px; color: #333;">Welcome to Our Campaign</h2>
+  <p style="color: #666; line-height: 1.8; font-size: 16px;">This is a great place to introduce your message, share important information, or invite your audience to take action.</p>
+</div>`
+    }
+  ];
+
+  const insertStmt = db.prepare('INSERT INTO campaign_templates (id, name, description, category, html_content, is_system) VALUES (?, ?, ?, ?, ?, 1)');
+
+  const transaction = db.transaction((templates) => {
+    for (const template of templates) {
+      insertStmt.run(template.id, template.name, template.description, template.category, template.html_content);
+    }
+  });
+
+  transaction(templates);
+  console.log(`Inserted ${templates.length} default templates`);
 }
 
 // Check if setup is needed
@@ -904,6 +1126,54 @@ ipcMain.handle('delete-email-template', (event, id) => {
   const stmt = db.prepare('DELETE FROM email_templates WHERE id = ?');
   stmt.run(id);
   return { success: true };
+});
+
+// Campaign Templates
+ipcMain.handle('get-campaign-templates', (event, filters) => {
+  let query = 'SELECT * FROM campaign_templates';
+  let params = [];
+
+  if (filters && filters.category) {
+    query += ' WHERE category = ?';
+    params.push(filters.category);
+  }
+
+  query += ' ORDER BY is_system DESC, created_at DESC';
+
+  const stmt = db.prepare(query);
+  return params.length > 0 ? stmt.all(...params) : stmt.all();
+});
+
+ipcMain.handle('create-campaign-template', (event, data) => {
+  const { name, description, category, htmlContent, thumbnail, userId } = data;
+  const id = uuidv4();
+
+  const stmt = db.prepare('INSERT INTO campaign_templates (id, name, description, category, html_content, thumbnail, is_system, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  stmt.run(id, name, description, category, htmlContent, thumbnail || null, 0, userId);
+
+  logAudit(userId, 'CREATE_CAMPAIGN_TEMPLATE', 'campaign_template', id, `Created campaign template: ${name}`);
+
+  return { success: true, id };
+});
+
+ipcMain.handle('delete-campaign-template', (event, data) => {
+  const { id, userId } = data;
+
+  // Prevent deletion of system templates
+  const template = db.prepare('SELECT is_system FROM campaign_templates WHERE id = ?').get(id);
+  if (template && template.is_system === 1) {
+    return { success: false, error: 'Cannot delete system templates' };
+  }
+
+  const stmt = db.prepare('DELETE FROM campaign_templates WHERE id = ? AND created_by = ?');
+  const result = stmt.run(id, userId);
+
+  if (result.changes > 0) {
+    logAudit(userId, 'DELETE_CAMPAIGN_TEMPLATE', 'campaign_template', id, 'Deleted campaign template');
+    return { success: true };
+  }
+
+  return { success: false, error: 'Template not found or unauthorized' };
 });
 
 // Contact Lists

@@ -56,7 +56,12 @@ contextBridge.exposeInMainWorld('api', {
   getEmailTemplates: (userId) => ipcRenderer.invoke('get-email-templates', userId),
   createEmailTemplate: (data) => ipcRenderer.invoke('create-email-template', data),
   deleteEmailTemplate: (id) => ipcRenderer.invoke('delete-email-template', id),
-  
+
+  // Campaign Templates
+  getCampaignTemplates: (filters) => ipcRenderer.invoke('get-campaign-templates', filters),
+  createCampaignTemplate: (data) => ipcRenderer.invoke('create-campaign-template', data),
+  deleteCampaignTemplate: (data) => ipcRenderer.invoke('delete-campaign-template', data),
+
   // Responses
   getResponses: (campaignId) => ipcRenderer.invoke('get-responses', campaignId),
   saveResponse: (data) => ipcRenderer.invoke('save-response', data),

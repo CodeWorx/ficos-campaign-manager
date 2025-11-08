@@ -7,6 +7,7 @@ let emailConfigs = [];
 let users = [];
 let companySettings = null;
 let currentLogoBase64 = null;
+let campaignEditor = null; // ToastUI Editor instance
 
 // Initialize dashboard
 async function init() {
@@ -37,9 +38,6 @@ async function init() {
 
     // Setup navigation
     setupNavigation();
-
-    // Setup form preview
-    setupFormPreview();
 
     // Setup color picker
     setupColorPicker();
@@ -303,26 +301,69 @@ function renderUsers() {
 // Campaign operations
 function showCreateCampaign() {
     document.getElementById('createCampaignModal').classList.add('show');
+
+    // Initialize ToastUI Editor if not already initialized
+    if (!campaignEditor) {
+        const editorEl = document.getElementById('campaignEditor');
+        if (editorEl) {
+            campaignEditor = new toastui.Editor({
+                el: editorEl,
+                height: '500px',
+                initialEditType: 'wysiwyg',
+                previewStyle: 'vertical',
+                initialValue: `<form>
+  <label>Name:</label>
+  <input type="text" name="name" required><br><br>
+
+  <label>Email:</label>
+  <input type="email" name="email" required><br><br>
+
+  <label>Message:</label>
+  <textarea name="message" rows="4"></textarea><br><br>
+
+  <button type="submit">Submit</button>
+</form>`,
+                toolbarItems: [
+                    ['heading', 'bold', 'italic', 'strike'],
+                    ['hr', 'quote'],
+                    ['ul', 'ol', 'task', 'indent', 'outdent'],
+                    ['table', 'link'],
+                    ['code', 'codeblock'],
+                    ['scrollSync']
+                ]
+            });
+        }
+    }
 }
 
 async function createCampaign(event) {
     event.preventDefault();
-    
+
     const name = document.getElementById('campaignName').value;
     const description = document.getElementById('campaignDescription').value;
-    const formHtml = document.getElementById('formHtmlEditor').value;
-    
-    const result = await window.api.createCampaign({
-        name,
-        description,
-        formHtml,
-        userId: currentUser.userId
-    });
-    
-    if (result.success) {
-        closeModal('createCampaignModal');
-        await loadCampaigns();
-        alert('Campaign created successfully!');
+
+    // Get HTML from ToastUI Editor
+    const formHtml = campaignEditor ? campaignEditor.getHTML() : '';
+
+    try {
+        const result = await window.api.createCampaign({
+            name,
+            description,
+            formHtml,
+            userId: currentUser.userId
+        });
+
+        if (result.success || result.id) {
+            closeModal('createCampaignModal');
+            document.getElementById('createCampaignForm').reset();
+            await loadCampaigns();
+            alert('Campaign created successfully!');
+        } else {
+            alert('Failed to create campaign: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error creating campaign:', error);
+        alert('An error occurred while creating the campaign. Please try again.');
     }
 }
 
@@ -476,10 +517,10 @@ function showAddUser() {
 async function addUser(event) {
     event.preventDefault();
 
-    const name = document.getElementById('userName').value;
-    const email = document.getElementById('userEmail').value;
-    const password = document.getElementById('userPassword').value;
-    const role = document.getElementById('userRole').value;
+    const name = document.getElementById('newUserName').value;
+    const email = document.getElementById('newUserEmail').value;
+    const password = document.getElementById('newUserPassword').value;
+    const role = document.getElementById('newUserRole').value;
 
     const result = await window.api.createUser({
         name,
@@ -505,44 +546,6 @@ async function deleteUser(id) {
     await window.api.deleteUser(id);
     await loadUsers();
     alert('User deleted successfully!');
-}
-
-// Form preview
-function setupFormPreview() {
-    const editor = document.getElementById('formHtmlEditor');
-    if (!editor) return;
-    
-    editor.addEventListener('input', updatePreview);
-    updatePreview();
-}
-
-function updatePreview() {
-    const html = document.getElementById('formHtmlEditor')?.value || '';
-    const preview = document.getElementById('formPreview');
-    if (preview) {
-        preview.innerHTML = html;
-    }
-}
-
-// Rich Text Toolbar Functions
-function insertHTML(html, cursorOffset) {
-    const editor = document.getElementById('formHtmlEditor');
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    const text = editor.value;
-
-    // Insert HTML at cursor position
-    const before = text.substring(0, start);
-    const after = text.substring(end);
-    editor.value = before + html + after;
-
-    // Set cursor position
-    const newCursorPos = start + html.length - cursorOffset;
-    editor.setSelectionRange(newCursorPos, newCursorPos);
-    editor.focus();
-
-    // Update preview
-    updatePreview();
 }
 
 // User Profile Dropdown Functions
@@ -916,6 +919,190 @@ document.addEventListener('DOMContentLoaded', function() {
         brandingForm.addEventListener('submit', saveCompanySettings);
     }
 });
+
+// ===== CAMPAIGN TEMPLATE BROWSER =====
+
+let allTemplates = [];
+let currentTemplateCategory = 'all';
+
+// Open template browser modal
+async function openTemplateBrowser() {
+    document.getElementById('templateBrowserModal').classList.add('show');
+    await loadTemplates();
+    renderTemplates();
+}
+
+// Load templates from database
+async function loadTemplates() {
+    try {
+        allTemplates = await window.api.getCampaignTemplates();
+        console.log('Loaded templates:', allTemplates.length);
+    } catch (error) {
+        console.error('Error loading templates:', error);
+        showNotification('Failed to load templates', 'error');
+    }
+}
+
+// Filter templates by category
+function filterTemplatesByCategory(category) {
+    currentTemplateCategory = category;
+
+    // Update active tab
+    document.querySelectorAll('.template-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    const activeTab = document.querySelector(`.template-tab[data-category="${category}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
+
+    renderTemplates();
+}
+
+// Render template cards
+function renderTemplates() {
+    const templateGrid = document.getElementById('templateGrid');
+    const emptyState = document.getElementById('templateEmptyState');
+
+    // Filter templates by category
+    let filteredTemplates = allTemplates;
+    if (currentTemplateCategory !== 'all') {
+        filteredTemplates = allTemplates.filter(t => t.category === currentTemplateCategory);
+    }
+
+    // Show empty state if no templates
+    if (filteredTemplates.length === 0) {
+        templateGrid.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    templateGrid.style.display = 'grid';
+    emptyState.style.display = 'none';
+
+    // Render template cards
+    templateGrid.innerHTML = filteredTemplates.map(template => `
+        <div class="template-card" onclick="insertTemplate('${template.id}')">
+            ${template.is_system ? '<div class="template-card-system-badge">Built-in</div>' : ''}
+            <div class="template-card-preview">
+                <div style="font-size: 11px; color: #999; max-height: 120px; overflow: hidden; line-height: 1.4;">
+                    ${escapeHtml(template.html_content).substring(0, 200)}...
+                </div>
+            </div>
+            <div class="template-card-name">${escapeHtml(template.name)}</div>
+            <div class="template-card-description">${escapeHtml(template.description || '')}</div>
+            <div class="template-card-category">${escapeHtml(template.category)}</div>
+        </div>
+    `).join('');
+}
+
+// Insert template into editor
+async function insertTemplate(templateId) {
+    try {
+        const template = allTemplates.find(t => t.id === templateId);
+        if (!template) {
+            showNotification('Template not found', 'error');
+            return;
+        }
+
+        // Process template variables
+        let htmlContent = template.html_content;
+
+        // Replace {{company_name}}
+        if (companySettings && companySettings.company_name) {
+            htmlContent = htmlContent.replace(/\{\{company_name\}\}/g, companySettings.company_name);
+        }
+
+        // Replace {{company_logo}}
+        if (companySettings && companySettings.company_logo) {
+            htmlContent = htmlContent.replace(/\{\{company_logo\}\}/g, companySettings.company_logo);
+        }
+
+        // Replace {{year}}
+        const currentYear = new Date().getFullYear();
+        htmlContent = htmlContent.replace(/\{\{year\}\}/g, currentYear.toString());
+
+        // Insert into ToastUI Editor
+        if (campaignEditor) {
+            // Get current position or append at end
+            const currentContent = campaignEditor.getHTML();
+
+            // Insert at cursor position (append to end for simplicity)
+            const newContent = currentContent + '\n\n' + htmlContent;
+            campaignEditor.setHTML(newContent);
+
+            showNotification(`Template "${template.name}" inserted successfully`, 'success');
+            closeModal('templateBrowserModal');
+        } else {
+            showNotification('Editor not initialized', 'error');
+        }
+    } catch (error) {
+        console.error('Error inserting template:', error);
+        showNotification('Failed to insert template', 'error');
+    }
+}
+
+// Escape HTML for safe rendering
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Show notification (simple implementation)
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        background: ${type === 'error' ? '#e74c3c' : type === 'success' ? '#27ae60' : '#3498db'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        font-size: 14px;
+        font-weight: 500;
+        animation: slideInRight 0.3s ease-out;
+    `;
+
+    document.body.appendChild(notification);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Add CSS animation for notifications
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
 
 // Initialize when page loads
 init();

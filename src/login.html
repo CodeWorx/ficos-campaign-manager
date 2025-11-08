@@ -191,13 +191,42 @@
     
     <script>
         // Ensure inputs are enabled on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('input').forEach(input => {
-                input.removeAttribute('disabled');
-                input.removeAttribute('readonly');
-                input.style.pointerEvents = 'auto';
+        // Aggressively enable inputs
+        function enableInputs() {
+            document.querySelectorAll('input, textarea, select, button').forEach(elem => {
+                elem.removeAttribute('disabled');
+                elem.removeAttribute('readonly');
+                elem.style.pointerEvents = 'auto !important';
+                elem.style.userSelect = 'text';
+                elem.style.webkitUserSelect = 'text';
+                elem.style.opacity = '1';
+                elem.style.cursor = 'text';
+
+                // Force enable on click
+                elem.addEventListener('click', function() {
+                    this.removeAttribute('disabled');
+                    this.removeAttribute('readonly');
+                    this.focus();
+                }, { once: false });
+
+                // Force enable on focus
+                elem.addEventListener('focus', function() {
+                    this.removeAttribute('disabled');
+                    this.removeAttribute('readonly');
+                }, { once: false });
             });
-        });
+        }
+
+        // Run immediately
+        enableInputs();
+
+        // Run on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', enableInputs);
+
+        // Run after a short delay
+        setTimeout(enableInputs, 100);
+        setTimeout(enableInputs, 500);
+        setTimeout(enableInputs, 1000);
 
         const form = document.getElementById('loginForm');
         const loginBtn = document.getElementById('loginBtn');

@@ -1054,52 +1054,48 @@ ipcMain.handle('send-campaign', async (event, data) => {
   }
 });
 
-// CSV Import
-ipcMain.handle('import-contacts-csv', async (event, csvData) => {
+// CSV Import - accepts array of contact objects from frontend
+ipcMain.handle('import-contacts-csv', async (event, contacts) => {
   try {
-    const Papa = require('papaparse');
-    
-    const results = Papa.parse(csvData, {
-      header: true,
-      skipEmptyLines: true
-    });
-    
-    if (!results.data || results.data.length === 0) {
-      return { success: false, error: 'No data found in CSV' };
+    if (!contacts || contacts.length === 0) {
+      return { success: false, error: 'No contacts provided' };
     }
-    
+
     const stmt = db.prepare('INSERT OR IGNORE INTO contacts (id, email, first_name, last_name, company, phone) VALUES (?, ?, ?, ?, ?, ?)');
-    
+
     let imported = 0;
     let skipped = 0;
-    
+
     const transaction = db.transaction((rows) => {
       for (const row of rows) {
         if (!row.email) {
           skipped++;
           continue;
         }
-        
+
         try {
           stmt.run(
             uuidv4(),
             row.email,
-            row.first_name || row.firstName || '',
-            row.last_name || row.lastName || '',
+            row.firstname || row.first_name || row['first name'] || '',
+            row.lastname || row.last_name || row['last name'] || '',
             row.company || '',
             row.phone || ''
           );
           imported++;
         } catch (error) {
+          log('error', 'Failed to import contact:', error.message);
           skipped++;
         }
       }
     });
-    
-    transaction(results.data);
-    
-    return { success: true, imported, skipped };
+
+    transaction(contacts);
+
+    log('info', `CSV Import completed: ${imported} imported, ${skipped} skipped`);
+    return { success: true, count: imported, imported, skipped };
   } catch (error) {
+    log('error', 'CSV import error:', error);
     return { success: false, error: error.message };
   }
 });

@@ -66,14 +66,17 @@
         
         .form-group {
             margin-bottom: 20px;
+            position: relative;
         }
-        
+
         label {
             display: block;
             color: #333;
             font-weight: 600;
             margin-bottom: 8px;
             font-size: 14px;
+            cursor: pointer;
+            pointer-events: auto;
         }
         
         input {
@@ -83,6 +86,12 @@
             border-radius: 8px;
             font-size: 15px;
             transition: border-color 0.3s;
+            pointer-events: auto;
+            user-select: text;
+            -webkit-user-select: text;
+            position: relative;
+            z-index: 1;
+            background: white;
         }
         
         input:focus {
@@ -181,6 +190,15 @@
     </div>
     
     <script>
+        // Ensure inputs are enabled on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('input').forEach(input => {
+                input.removeAttribute('disabled');
+                input.removeAttribute('readonly');
+                input.style.pointerEvents = 'auto';
+            });
+        });
+
         const form = document.getElementById('loginForm');
         const loginBtn = document.getElementById('loginBtn');
         const errorMessage = document.getElementById('errorMessage');

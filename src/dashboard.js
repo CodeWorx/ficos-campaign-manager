@@ -476,6 +476,11 @@ async function createCampaign(event) {
     // Get HTML from ToastUI Editor
     const formHtml = campaignEditor ? campaignEditor.getHTML() : '';
 
+    // Check if we're editing an existing campaign
+    const form = document.getElementById('createCampaignForm');
+    const editingId = form.dataset.editingId;
+    const isEditMode = !!editingId;
+
     // Get send option
     const sendOption = document.querySelector('input[name="sendOption"]:checked')?.value || 'draft';
 
@@ -503,23 +508,39 @@ async function createCampaign(event) {
     }
 
     try {
-        const result = await window.api.createCampaign({
-            name,
-            description,
-            formHtml,
-            userId: currentUser.userId
-        });
+        let result;
+        let campaignId;
+
+        if (isEditMode) {
+            // Update existing campaign
+            result = await window.api.updateCampaign({
+                id: editingId,
+                name,
+                description,
+                formHtml
+            });
+            campaignId = editingId;
+        } else {
+            // Create new campaign
+            result = await window.api.createCampaign({
+                name,
+                description,
+                formHtml,
+                userId: currentUser.userId
+            });
+            campaignId = result.id;
+        }
 
         if (result.success || result.id) {
-            const campaignId = result.id;
 
             // Handle scheduling if applicable
             if (sendOption === 'schedule' && scheduledFor) {
                 await window.api.scheduleCampaign({
                     campaignId,
-                    scheduledFor
+                    scheduledFor,
+                    contactIds: selectedRecipients
                 });
-                showNotification(`Campaign scheduled for ${new Date(scheduledFor).toLocaleString()}`, 'success');
+                showNotification(`Campaign scheduled for ${new Date(scheduledFor).toLocaleString()} for ${selectedRecipients.length} recipient(s)`, 'success');
             }
 
             // Handle immediate send
@@ -546,9 +567,17 @@ async function createCampaign(event) {
             document.querySelector('input[name="sendOption"][value="draft"]').checked = true;
             updateSendOptions();
 
-            await loadCampaigns();
+            // Reset edit mode
+            delete form.dataset.editingId;
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.textContent = 'Create Campaign';
 
-            if (sendOption === 'draft') {
+            await loadCampaigns();
+            await loadDashboard(); // Reload dashboard to update scheduled campaigns
+
+            if (isEditMode) {
+                showNotification('Campaign updated successfully', 'success');
+            } else if (sendOption === 'draft') {
                 showNotification('Campaign created as draft', 'success');
             }
         } else {
@@ -888,6 +917,18 @@ function formatDate(dateString) {
 
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('show');
+
+    // Reset campaign form edit mode when closing
+    if (modalId === 'createCampaignModal') {
+        const form = document.getElementById('createCampaignForm');
+        if (form && form.dataset.editingId) {
+            delete form.dataset.editingId;
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.textContent = 'Create Campaign';
+            }
+        }
+    }
 }
 
 async function logout() {
@@ -1247,7 +1288,11 @@ function renderTemplates() {
     // Render template cards
     templateGrid.innerHTML = filteredTemplates.map(template => `
         <div class="template-card" onclick="insertTemplate('${template.id}')">
-            ${template.is_system ? '<div class="template-card-system-badge">Built-in</div>' : ''}
+            ${template.is_system ? '<div class="template-card-system-badge">Built-in</div>' : `
+                <button class="template-delete-btn" onclick="event.stopPropagation(); deleteTemplate('${template.id}')" title="Delete template">
+                    ×
+                </button>
+            `}
             <div class="template-card-preview">
                 <div style="font-size: 11px; color: #999; max-height: 120px; overflow: hidden; line-height: 1.4;">
                     ${escapeHtml(template.html_content).substring(0, 200)}...
@@ -1258,6 +1303,29 @@ function renderTemplates() {
             <div class="template-card-category">${escapeHtml(template.category)}</div>
         </div>
     `).join('');
+}
+
+// Delete user template
+async function deleteTemplate(templateId) {
+    if (!confirm('Delete this template? This action cannot be undone.')) return;
+
+    try {
+        const result = await window.api.deleteCampaignTemplate({
+            id: templateId,
+            userId: currentUser.userId
+        });
+
+        if (result.success) {
+            showNotification('Template deleted successfully', 'success');
+            await loadTemplates();
+            renderTemplates();
+        } else {
+            showNotification('Failed to delete template: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting template:', error);
+        showNotification('Failed to delete template', 'error');
+    }
 }
 
 // Insert template into editor

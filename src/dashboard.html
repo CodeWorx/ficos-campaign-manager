@@ -1004,6 +1004,7 @@
                         <p class="page-subtitle">Manage your contact list</p>
                     </div>
                     <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="showManageContactLists()">📋 Manage Lists</button>
                         <button class="btn btn-secondary" onclick="showImportContacts()">Import CSV</button>
                         <button class="btn btn-primary" onclick="showAddContact()">+ Add Contact</button>
                     </div>
@@ -1376,20 +1377,182 @@
 
             <!-- Email Settings Tab -->
             <div class="settings-content" id="emailSettings">
-                <div class="placeholder-section">
-                    <div class="placeholder-icon">📧</div>
-                    <h3 style="color: #666; margin-bottom: 10px;">Email Settings</h3>
-                    <p>Configure SMTP settings from the Email Settings page in the main navigation.</p>
+                <form id="emailSettingsForm">
+                    <h3 style="margin-top: 0; margin-bottom: 20px; color: #333;">SMTP Configuration</h3>
+
+                    <div class="form-group">
+                        <label>Configuration Name</label>
+                        <input type="text" id="smtpConfigName" placeholder="e.g., Gmail, Office 365, SendGrid" required>
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            A friendly name to identify this email configuration
+                        </small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label>SMTP Host</label>
+                            <input type="text" id="smtpHost" placeholder="smtp.gmail.com" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>SMTP Port</label>
+                            <input type="number" id="smtpPort" placeholder="587" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Username / Email</label>
+                        <input type="email" id="smtpUser" placeholder="your-email@example.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Password / App Password</label>
+                        <input type="password" id="smtpPassword" placeholder="••••••••••••" required>
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            For Gmail, use an App Password. Never share this with anyone.
+                        </small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>From Email</label>
+                            <input type="email" id="smtpFromEmail" placeholder="noreply@example.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label>From Name</label>
+                            <input type="text" id="smtpFromName" placeholder="Your Company" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" id="smtpIsDefault">
+                            <span>Set as default email configuration</span>
+                        </label>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Save SMTP Settings</button>
+                        <button type="button" class="btn btn-secondary" onclick="testSmtpConnection()" style="margin-left: 10px;">
+                            Test Connection
+                        </button>
+                    </div>
+                </form>
+
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #e0e0e0;">
+
+                <h3 style="margin-bottom: 15px; color: #333;">Saved Configurations</h3>
+                <div id="emailConfigsList">
+                    <div style="text-align: center; padding: 40px; color: #999;">
+                        No email configurations saved yet
+                    </div>
+                </div>
+
+                <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                    <h4 style="font-size: 14px; margin: 0 0 10px 0; color: #666;">📚 SMTP Setup Guides</h4>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #666;">
+                        <li><strong>Gmail:</strong> smtp.gmail.com, Port 587, Use App Password</li>
+                        <li><strong>Outlook/Office 365:</strong> smtp-mail.outlook.com, Port 587</li>
+                        <li><strong>SendGrid:</strong> smtp.sendgrid.net, Port 587</li>
+                        <li><strong>Mailgun:</strong> smtp.mailgun.org, Port 587</li>
+                    </ul>
                 </div>
             </div>
 
             <!-- User Preferences Tab -->
             <div class="settings-content" id="preferencesSettings">
-                <div class="placeholder-section">
-                    <div class="placeholder-icon">⚙️</div>
-                    <h3 style="color: #666; margin-bottom: 10px;">User Preferences</h3>
-                    <p>User preferences and account settings coming soon.</p>
-                </div>
+                <form id="userPreferencesForm">
+                    <h3 style="margin-top: 0; margin-bottom: 20px; color: #333;">Account Settings</h3>
+
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" id="prefDisplayName" placeholder="Your Name">
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            How your name appears to other users
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="prefEmail" placeholder="your@email.com" disabled>
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            Email address cannot be changed (contact administrator)
+                        </small>
+                    </div>
+
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e0e0e0;">
+
+                    <h3 style="margin-bottom: 20px; color: #333;">Notifications</h3>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" id="prefNotifyCampaignSent" checked>
+                            <span>Notify me when campaigns are sent</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" id="prefNotifyNewResponse" checked>
+                            <span>Notify me of new form responses</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" id="prefNotifyScheduledCampaign" checked>
+                            <span>Remind me of scheduled campaigns (1 hour before)</span>
+                        </label>
+                    </div>
+
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e0e0e0;">
+
+                    <h3 style="margin-bottom: 20px; color: #333;">Display Preferences</h3>
+
+                    <div class="form-group">
+                        <label>Timezone</label>
+                        <select id="prefTimezone">
+                            <option value="America/New_York">Eastern Time (ET)</option>
+                            <option value="America/Chicago">Central Time (CT)</option>
+                            <option value="America/Denver">Mountain Time (MT)</option>
+                            <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                            <option value="UTC">UTC</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Date Format</label>
+                        <select id="prefDateFormat">
+                            <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+                            <option value="DD/MM/YYYY">DD/MM/YYYY (International)</option>
+                            <option value="YYYY-MM-DD">YYYY-MM-DD (ISO)</option>
+                        </select>
+                    </div>
+
+                    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e0e0e0;">
+
+                    <h3 style="margin-bottom: 20px; color: #333;">Security</h3>
+
+                    <div class="form-group">
+                        <label>Change Password</label>
+                        <input type="password" id="prefCurrentPassword" placeholder="Current password">
+                    </div>
+
+                    <div class="form-group">
+                        <input type="password" id="prefNewPassword" placeholder="New password">
+                    </div>
+
+                    <div class="form-group">
+                        <input type="password" id="prefConfirmPassword" placeholder="Confirm new password">
+                        <small style="color: #999; font-size: 12px; display: block; margin-top: 5px;">
+                            Leave blank if you don't want to change your password
+                        </small>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Save Preferences</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('settingsModal')">Cancel</button>
+                    </div>
+                </form>
             </div>
 
             <!-- Debug Section (always visible at bottom) -->
@@ -1490,6 +1653,88 @@
                     💡 Tip: Click any template to insert it into your campaign
                 </div>
                 <button type="button" class="btn btn-secondary" onclick="closeModal('templateBrowserModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Lists Management Modal -->
+    <div class="modal" id="contactListsModal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>📋 Manage Contact Lists</h2>
+                <span class="close" onclick="closeModal('contactListsModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0; color: #333;">Your Contact Lists</h3>
+                    <button class="btn btn-primary" onclick="showCreateContactList()">+ Create New List</button>
+                </div>
+
+                <div id="contactListsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;">
+                    <!-- Lists will be rendered here -->
+                </div>
+
+                <div id="contactListsEmpty" style="text-align: center; padding: 60px 20px; color: #999; display: none;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                    <p>No contact lists yet. Create your first list to organize contacts!</p>
+                    <button class="btn btn-primary" onclick="showCreateContactList()" style="margin-top: 15px;">+ Create First List</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Contact List Modal -->
+    <div class="modal" id="editContactListModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="editListModalTitle">Create Contact List</h2>
+                <span class="close" onclick="closeModal('editContactListModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editContactListForm">
+                    <div class="form-group">
+                        <label>List Name</label>
+                        <input type="text" id="listName" placeholder="e.g., Newsletter Subscribers" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description (optional)</label>
+                        <textarea id="listDescription" rows="3" placeholder="Describe the purpose of this list"></textarea>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Save List</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('editContactListModal')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage List Contacts Modal -->
+    <div class="modal" id="manageListContactsModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 id="manageListContactsTitle">Manage List Contacts</h2>
+                <span class="close" onclick="closeModal('manageListContactsModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <input type="text" id="listContactSearch" placeholder="Search contacts..." style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn btn-secondary" onclick="addAllContactsToCurrentList()">Add All Available</button>
+                    <button class="btn btn-secondary" onclick="removeAllContactsFromCurrentList()">Remove All</button>
+                </div>
+
+                <div id="listContactsList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <!-- Contacts will be rendered here -->
+                </div>
+
+                <div style="margin-top: 15px; text-align: right;">
+                    <button class="btn btn-primary" onclick="closeModal('manageListContactsModal')">Done</button>
+                </div>
             </div>
         </div>
     </div>

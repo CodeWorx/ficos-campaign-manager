@@ -88,6 +88,18 @@ function initDatabase() {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      id TEXT PRIMARY KEY,
+      user_id TEXT UNIQUE NOT NULL,
+      display_name TEXT,
+      notifications TEXT,
+      timezone TEXT DEFAULT 'America/New_York',
+      date_format TEXT DEFAULT 'MM/DD/YYYY',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS campaigns (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -935,16 +947,94 @@ ipcMain.handle('get-email-configs', () => {
 ipcMain.handle('save-email-config', (event, data) => {
   const { name, smtpHost, smtpPort, smtpUser, smtpPassword, fromEmail, fromName, isDefault } = data;
   const id = uuidv4();
-  
+
   // If setting as default, unset other defaults
   if (isDefault) {
     db.prepare('UPDATE email_configs SET is_default = 0').run();
   }
-  
+
   const stmt = db.prepare('INSERT INTO email_configs (id, name, smtp_host, smtp_port, smtp_user, smtp_password, from_email, from_name, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
   stmt.run(id, name, smtpHost, smtpPort, smtpUser, smtpPassword, fromEmail, fromName, isDefault ? 1 : 0);
-  
+
   return { success: true, id };
+});
+
+ipcMain.handle('test-smtp-connection', async (event, data) => {
+  const { smtpHost, smtpPort, smtpUser, smtpPassword } = data;
+  const nodemailer = require('nodemailer');
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPassword
+      }
+    });
+
+    // Verify connection
+    await transporter.verify();
+
+    log('info', 'SMTP connection test successful', { host: smtpHost, port: smtpPort });
+    return { success: true };
+  } catch (error) {
+    log('error', 'SMTP connection test failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('test-email-config', async (event, configId) => {
+  const nodemailer = require('nodemailer');
+
+  try {
+    // Get config from database
+    const config = db.prepare('SELECT * FROM email_configs WHERE id = ?').get(configId);
+
+    if (!config) {
+      return { success: false, error: 'Email configuration not found' };
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: config.smtp_host,
+      port: config.smtp_port,
+      secure: config.smtp_port === 465,
+      auth: {
+        user: config.smtp_user,
+        pass: config.smtp_password
+      }
+    });
+
+    // Verify connection
+    await transporter.verify();
+
+    log('info', 'Email config test successful', { id: configId, name: config.name });
+    return { success: true };
+  } catch (error) {
+    log('error', 'Email config test failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('set-default-email-config', (event, configId) => {
+  try {
+    // First unset all defaults
+    db.prepare('UPDATE email_configs SET is_default = 0').run();
+
+    // Set the specified config as default
+    const result = db.prepare('UPDATE email_configs SET is_default = 1 WHERE id = ?').run(configId);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'Email configuration not found' };
+    }
+
+    log('info', 'Default email config updated', { id: configId });
+    return { success: true };
+  } catch (error) {
+    log('error', 'Failed to set default email config:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // Form response operations
@@ -1237,12 +1327,51 @@ ipcMain.handle('add-contacts-to-list', (event, data) => {
 
 ipcMain.handle('get-list-contacts', (event, listId) => {
   const stmt = db.prepare(`
-    SELECT c.* 
+    SELECT c.*
     FROM contacts c
     INNER JOIN contact_list_members clm ON c.id = clm.contact_id
     WHERE clm.list_id = ?
   `);
   return stmt.all(listId);
+});
+
+ipcMain.handle('delete-contact-list', (event, listId) => {
+  try {
+    // Delete list members first (cascaded by foreign key, but explicit for clarity)
+    db.prepare('DELETE FROM contact_list_members WHERE list_id = ?').run(listId);
+    // Delete the list
+    db.prepare('DELETE FROM contact_lists WHERE id = ?').run(listId);
+
+    log('info', 'Contact list deleted', { listId });
+    return { success: true };
+  } catch (error) {
+    log('error', 'Error deleting contact list:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('remove-contact-from-list', (event, data) => {
+  const { listId, contactId } = data;
+
+  try {
+    db.prepare('DELETE FROM contact_list_members WHERE list_id = ? AND contact_id = ?').run(listId, contactId);
+    log('info', 'Contact removed from list', { listId, contactId });
+    return { success: true };
+  } catch (error) {
+    log('error', 'Error removing contact from list:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('remove-all-contacts-from-list', (event, listId) => {
+  try {
+    const result = db.prepare('DELETE FROM contact_list_members WHERE list_id = ?').run(listId);
+    log('info', 'All contacts removed from list', { listId, count: result.changes });
+    return { success: true, count: result.changes };
+  } catch (error) {
+    log('error', 'Error removing all contacts from list:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // Export responses to CSV
@@ -1319,6 +1448,97 @@ ipcMain.handle('delete-user', (event, id) => {
   const stmt = db.prepare('DELETE FROM users WHERE id = ?');
   stmt.run(id);
   return { success: true };
+});
+
+// User preferences
+ipcMain.handle('get-user-preferences', (event, userId) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM user_preferences WHERE user_id = ?');
+    const prefs = stmt.get(userId);
+
+    // If no preferences exist yet, return defaults
+    if (!prefs) {
+      return {
+        display_name: null,
+        notifications: JSON.stringify({
+          campaignSent: true,
+          newResponse: true,
+          scheduledCampaign: true
+        }),
+        timezone: 'America/New_York',
+        date_format: 'MM/DD/YYYY'
+      };
+    }
+
+    return prefs;
+  } catch (error) {
+    log('error', 'Error getting user preferences:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('save-user-preferences', async (event, data) => {
+  const bcrypt = require('bcrypt');
+  try {
+    const { userId, displayName, notifications, timezone, dateFormat, passwordChange } = data;
+
+    // Handle password change if provided
+    if (passwordChange && passwordChange.currentPassword && passwordChange.newPassword) {
+      // Verify current password
+      const user = db.prepare('SELECT password FROM users WHERE id = ?').get(userId);
+
+      if (!user) {
+        return { success: false, error: 'User not found' };
+      }
+
+      const passwordValid = await bcrypt.compare(passwordChange.currentPassword, user.password);
+
+      if (!passwordValid) {
+        return { success: false, error: 'Current password is incorrect' };
+      }
+
+      // Hash and update password
+      const hashedPassword = await bcrypt.hash(passwordChange.newPassword, 10);
+      db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, userId);
+
+      log('info', 'User password changed', { userId });
+    }
+
+    // Update display name in users table
+    if (displayName) {
+      db.prepare('UPDATE users SET name = ? WHERE id = ?').run(displayName, userId);
+    }
+
+    // Save preferences
+    const notificationsJson = JSON.stringify(notifications);
+    const prefId = uuidv4();
+
+    // Check if preferences exist
+    const existingPrefs = db.prepare('SELECT id FROM user_preferences WHERE user_id = ?').get(userId);
+
+    if (existingPrefs) {
+      // Update existing
+      const stmt = db.prepare(`
+        UPDATE user_preferences
+        SET display_name = ?, notifications = ?, timezone = ?, date_format = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `);
+      stmt.run(displayName, notificationsJson, timezone, dateFormat, userId);
+    } else {
+      // Insert new
+      const stmt = db.prepare(`
+        INSERT INTO user_preferences (id, user_id, display_name, notifications, timezone, date_format)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(prefId, userId, displayName, notificationsJson, timezone, dateFormat);
+    }
+
+    log('info', 'User preferences saved', { userId });
+    return { success: true };
+  } catch (error) {
+    log('error', 'Error saving user preferences:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // ===== NEW FEATURES =====

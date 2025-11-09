@@ -897,6 +897,12 @@ function openSettings() {
     // Load log path
     loadLogPath();
 
+    // Load email configurations
+    loadSavedEmailConfigs();
+
+    // Load user preferences
+    loadUserPreferencesIntoForm();
+
     // Show the modal
     document.getElementById('settingsModal').classList.add('show');
 }
@@ -1202,6 +1208,312 @@ async function loadLogPath() {
     }
 }
 
+// ===== EMAIL SETTINGS FUNCTIONS =====
+
+// Save Email Settings (SMTP Configuration)
+async function saveEmailSettings(event) {
+    event.preventDefault();
+
+    const configName = document.getElementById('smtpConfigName').value.trim();
+    const smtpHost = document.getElementById('smtpHost').value.trim();
+    const smtpPort = parseInt(document.getElementById('smtpPort').value);
+    const smtpUser = document.getElementById('smtpUser').value.trim();
+    const smtpPassword = document.getElementById('smtpPassword').value;
+    const fromEmail = document.getElementById('smtpFromEmail').value.trim();
+    const fromName = document.getElementById('smtpFromName').value.trim();
+    const isDefault = document.getElementById('smtpIsDefault').checked;
+
+    // Validate inputs
+    if (!configName || !smtpHost || !smtpPort || !smtpUser || !smtpPassword || !fromEmail || !fromName) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+
+    if (smtpPort < 1 || smtpPort > 65535) {
+        showNotification('Invalid port number', 'error');
+        return;
+    }
+
+    try {
+        const result = await window.api.saveEmailConfig({
+            name: configName,
+            smtpHost,
+            smtpPort,
+            smtpUser,
+            smtpPassword,
+            fromEmail,
+            fromName,
+            isDefault
+        });
+
+        if (result.success || result.id) {
+            showNotification('Email configuration saved successfully!', 'success');
+
+            // Clear the form
+            document.getElementById('emailSettingsForm').reset();
+
+            // Reload saved configurations
+            await loadSavedEmailConfigs();
+        } else {
+            showNotification('Failed to save email configuration: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving email settings:', error);
+        showNotification('Failed to save email settings. Please try again.', 'error');
+    }
+}
+
+// Test SMTP Connection
+async function testSmtpConnection() {
+    const smtpHost = document.getElementById('smtpHost').value.trim();
+    const smtpPort = parseInt(document.getElementById('smtpPort').value);
+    const smtpUser = document.getElementById('smtpUser').value.trim();
+    const smtpPassword = document.getElementById('smtpPassword').value;
+
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
+        showNotification('Please fill in SMTP host, port, username, and password', 'error');
+        return;
+    }
+
+    try {
+        showNotification('Testing SMTP connection...', 'info');
+
+        // Call test connection API (we'll need to add this handler)
+        const result = await window.api.testSmtpConnection({
+            smtpHost,
+            smtpPort,
+            smtpUser,
+            smtpPassword
+        });
+
+        if (result.success) {
+            showNotification('✓ SMTP connection successful!', 'success');
+        } else {
+            showNotification('SMTP connection failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error testing SMTP connection:', error);
+        showNotification('Failed to test connection: ' + error.message, 'error');
+    }
+}
+
+// Load saved email configurations
+async function loadSavedEmailConfigs() {
+    try {
+        const configs = await window.api.getEmailConfigs();
+        renderEmailConfigsList(configs);
+    } catch (error) {
+        console.error('Error loading email configs:', error);
+    }
+}
+
+// Render email configurations list
+function renderEmailConfigsList(configs) {
+    const configsList = document.getElementById('emailConfigsList');
+
+    if (!configs || configs.length === 0) {
+        configsList.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #999;">
+                No email configurations saved yet
+            </div>
+        `;
+        return;
+    }
+
+    configsList.innerHTML = configs.map(config => `
+        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+                <div style="font-weight: 600; color: #333; margin-bottom: 5px;">
+                    ${escapeHtml(config.name)}
+                    ${config.is_default ? '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">DEFAULT</span>' : ''}
+                </div>
+                <div style="font-size: 13px; color: #666; margin-bottom: 3px;">
+                    <strong>Host:</strong> ${escapeHtml(config.smtp_host)}:${config.smtp_port}
+                </div>
+                <div style="font-size: 13px; color: #666; margin-bottom: 3px;">
+                    <strong>From:</strong> ${escapeHtml(config.from_name)} &lt;${escapeHtml(config.from_email)}&gt;
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary" onclick="testExistingEmailConfig('${config.id}')" style="font-size: 12px; padding: 6px 12px;">
+                    Test
+                </button>
+                ${!config.is_default ? `
+                    <button class="btn btn-secondary" onclick="setDefaultEmailConfig('${config.id}')" style="font-size: 12px; padding: 6px 12px;">
+                        Set Default
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+// Test existing email configuration
+async function testExistingEmailConfig(configId) {
+    try {
+        showNotification('Testing email configuration...', 'info');
+
+        const result = await window.api.testEmailConfig(configId);
+
+        if (result.success) {
+            showNotification('✓ Email configuration test successful!', 'success');
+        } else {
+            showNotification('Email configuration test failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error testing email config:', error);
+        showNotification('Failed to test email configuration', 'error');
+    }
+}
+
+// Set default email configuration
+async function setDefaultEmailConfig(configId) {
+    try {
+        const result = await window.api.setDefaultEmailConfig(configId);
+
+        if (result.success) {
+            showNotification('Default email configuration updated', 'success');
+            await loadSavedEmailConfigs();
+        } else {
+            showNotification('Failed to set default: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error setting default email config:', error);
+        showNotification('Failed to set default email configuration', 'error');
+    }
+}
+
+// ===== USER PREFERENCES FUNCTIONS =====
+
+// Save User Preferences
+async function saveUserPreferences(event) {
+    event.preventDefault();
+
+    const displayName = document.getElementById('prefDisplayName').value.trim();
+    const notifyCampaignSent = document.getElementById('prefNotifyCampaignSent').checked;
+    const notifyNewResponse = document.getElementById('prefNotifyNewResponse').checked;
+    const notifyScheduledCampaign = document.getElementById('prefNotifyScheduledCampaign').checked;
+    const timezone = document.getElementById('prefTimezone').value;
+    const dateFormat = document.getElementById('prefDateFormat').value;
+
+    // Password change fields
+    const currentPassword = document.getElementById('prefCurrentPassword').value;
+    const newPassword = document.getElementById('prefNewPassword').value;
+    const confirmPassword = document.getElementById('prefConfirmPassword').value;
+
+    // Validate password change if attempting to change password
+    if (currentPassword || newPassword || confirmPassword) {
+        if (!currentPassword) {
+            showNotification('Please enter your current password', 'error');
+            return;
+        }
+        if (!newPassword) {
+            showNotification('Please enter a new password', 'error');
+            return;
+        }
+        if (newPassword.length < 6) {
+            showNotification('New password must be at least 6 characters', 'error');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            showNotification('New passwords do not match', 'error');
+            return;
+        }
+    }
+
+    try {
+        const preferencesData = {
+            userId: currentUser.userId,
+            displayName: displayName || currentUser.name,
+            notifications: {
+                campaignSent: notifyCampaignSent,
+                newResponse: notifyNewResponse,
+                scheduledCampaign: notifyScheduledCampaign
+            },
+            timezone,
+            dateFormat
+        };
+
+        // Add password change if provided
+        if (currentPassword && newPassword) {
+            preferencesData.passwordChange = {
+                currentPassword,
+                newPassword
+            };
+        }
+
+        const result = await window.api.saveUserPreferences(preferencesData);
+
+        if (result.success) {
+            showNotification('Preferences saved successfully!', 'success');
+
+            // Update current user display name if changed
+            if (displayName && displayName !== currentUser.name) {
+                currentUser.name = displayName;
+                document.getElementById('userName').textContent = displayName;
+                document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+            }
+
+            // Clear password fields
+            document.getElementById('prefCurrentPassword').value = '';
+            document.getElementById('prefNewPassword').value = '';
+            document.getElementById('prefConfirmPassword').value = '';
+
+            if (preferencesData.passwordChange) {
+                showNotification('Password changed successfully!', 'success');
+            }
+        } else {
+            showNotification('Failed to save preferences: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving user preferences:', error);
+        showNotification('Failed to save preferences. Please try again.', 'error');
+    }
+}
+
+// Load user preferences into form
+async function loadUserPreferencesIntoForm() {
+    try {
+        const preferences = await window.api.getUserPreferences(currentUser.userId);
+
+        if (preferences) {
+            // Set display name and email
+            document.getElementById('prefDisplayName').value = preferences.display_name || currentUser.name;
+            document.getElementById('prefEmail').value = currentUser.email;
+
+            // Set notifications
+            if (preferences.notifications) {
+                const notif = typeof preferences.notifications === 'string'
+                    ? JSON.parse(preferences.notifications)
+                    : preferences.notifications;
+
+                document.getElementById('prefNotifyCampaignSent').checked = notif.campaignSent !== false;
+                document.getElementById('prefNotifyNewResponse').checked = notif.newResponse !== false;
+                document.getElementById('prefNotifyScheduledCampaign').checked = notif.scheduledCampaign !== false;
+            }
+
+            // Set timezone
+            if (preferences.timezone) {
+                document.getElementById('prefTimezone').value = preferences.timezone;
+            }
+
+            // Set date format
+            if (preferences.date_format) {
+                document.getElementById('prefDateFormat').value = preferences.date_format;
+            }
+        } else {
+            // Set defaults
+            document.getElementById('prefDisplayName').value = currentUser.name;
+            document.getElementById('prefEmail').value = currentUser.email;
+        }
+    } catch (error) {
+        console.error('Error loading user preferences:', error);
+        // Set defaults if loading fails
+        document.getElementById('prefDisplayName').value = currentUser.name;
+        document.getElementById('prefEmail').value = currentUser.email;
+    }
+}
+
 // Setup form submissions
 document.addEventListener('DOMContentLoaded', function() {
     const createCampaignForm = document.getElementById('createCampaignForm');
@@ -1222,6 +1534,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const brandingForm = document.getElementById('brandingForm');
     if (brandingForm) {
         brandingForm.addEventListener('submit', saveCompanySettings);
+    }
+
+    const emailSettingsForm = document.getElementById('emailSettingsForm');
+    if (emailSettingsForm) {
+        emailSettingsForm.addEventListener('submit', saveEmailSettings);
+    }
+
+    const userPreferencesForm = document.getElementById('userPreferencesForm');
+    if (userPreferencesForm) {
+        userPreferencesForm.addEventListener('submit', saveUserPreferences);
+    }
+
+    const editContactListForm = document.getElementById('editContactListForm');
+    if (editContactListForm) {
+        editContactListForm.addEventListener('submit', saveContactList);
     }
 });
 
@@ -1655,6 +1982,297 @@ function updateSendOptions() {
         }
     } else {
         scheduleOptions.style.display = 'none';
+    }
+}
+
+// ===== CONTACT LISTS MANAGEMENT =====
+
+let contactLists = [];
+let currentEditingListId = null;
+let currentManagingListId = null;
+let listContacts = [];
+
+// Show contact lists management modal
+async function showManageContactLists() {
+    document.getElementById('contactListsModal').classList.add('show');
+    await loadContactLists();
+    renderContactLists();
+}
+
+// Load contact lists from database
+async function loadContactLists() {
+    try {
+        contactLists = await window.api.getContactLists(currentUser.userId);
+    } catch (error) {
+        console.error('Error loading contact lists:', error);
+        showNotification('Failed to load contact lists', 'error');
+    }
+}
+
+// Render contact lists
+function renderContactLists() {
+    const grid = document.getElementById('contactListsGrid');
+    const emptyState = document.getElementById('contactListsEmpty');
+
+    if (!contactLists || contactLists.length === 0) {
+        grid.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    grid.style.display = 'grid';
+    emptyState.style.display = 'none';
+
+    grid.innerHTML = contactLists.map(list => `
+        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background: white; transition: box-shadow 0.2s;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                <h3 style="margin: 0; color: #333; font-size: 18px;">${escapeHtml(list.name)}</h3>
+                <button class="btn btn-danger" onclick="deleteContactList('${list.id}')" style="padding: 4px 8px; font-size: 12px;">×</button>
+            </div>
+
+            ${list.description ? `<p style="color: #666; font-size: 13px; margin-bottom: 15px;">${escapeHtml(list.description)}</p>` : ''}
+
+            <div style="display: flex; gap: 8px; margin-top: 15px;">
+                <button class="btn btn-primary" onclick="showManageListContacts('${list.id}')" style="flex: 1; font-size: 13px; padding: 8px;">
+                    Manage Contacts
+                </button>
+            </div>
+
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                <span style="font-size: 12px; color: #999;">Created ${formatDate(list.created_at)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Show create contact list modal
+function showCreateContactList() {
+    currentEditingListId = null;
+    document.getElementById('editListModalTitle').textContent = 'Create Contact List';
+    document.getElementById('listName').value = '';
+    document.getElementById('listDescription').value = '';
+    document.getElementById('editContactListModal').classList.add('show');
+}
+
+// Save contact list (create or update)
+async function saveContactList(event) {
+    event.preventDefault();
+
+    const name = document.getElementById('listName').value.trim();
+    const description = document.getElementById('listDescription').value.trim();
+
+    if (!name) {
+        showNotification('Please enter a list name', 'error');
+        return;
+    }
+
+    try {
+        const result = await window.api.createContactList({
+            name,
+            description,
+            userId: currentUser.userId
+        });
+
+        if (result.success || result.id) {
+            showNotification('Contact list saved successfully!', 'success');
+            closeModal('editContactListModal');
+            await loadContactLists();
+            renderContactLists();
+        } else {
+            showNotification('Failed to save contact list: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving contact list:', error);
+        showNotification('Failed to save contact list', 'error');
+    }
+}
+
+// Delete contact list
+async function deleteContactList(listId) {
+    if (!confirm('Delete this contact list? Contacts will not be deleted, only the list.')) return;
+
+    try {
+        const result = await window.api.deleteContactList(listId);
+
+        if (result.success) {
+            showNotification('Contact list deleted successfully', 'success');
+            await loadContactLists();
+            renderContactLists();
+        } else {
+            showNotification('Failed to delete contact list: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting contact list:', error);
+        showNotification('Failed to delete contact list', 'error');
+    }
+}
+
+// Show manage list contacts modal
+async function showManageListContacts(listId) {
+    currentManagingListId = listId;
+    const list = contactLists.find(l => l.id === listId);
+
+    if (!list) {
+        showNotification('List not found', 'error');
+        return;
+    }
+
+    document.getElementById('manageListContactsTitle').textContent = `Manage: ${list.name}`;
+    document.getElementById('manageListContactsModal').classList.add('show');
+
+    await loadListContacts(listId);
+    renderListContacts();
+}
+
+// Load contacts for a specific list
+async function loadListContacts(listId) {
+    try {
+        listContacts = await window.api.getListContacts(listId);
+    } catch (error) {
+        console.error('Error loading list contacts:', error);
+        listContacts = [];
+    }
+}
+
+// Render list contacts with add/remove functionality
+function renderListContacts(searchTerm = '') {
+    const contactsList = document.getElementById('listContactsList');
+    const searchLower = searchTerm.toLowerCase();
+
+    // Create a Set of contact IDs that are in this list
+    const listContactIds = new Set(listContacts.map(c => c.id));
+
+    // Filter contacts based on search
+    let filteredContacts = contacts;
+    if (searchTerm) {
+        filteredContacts = contacts.filter(c =>
+            c.email.toLowerCase().includes(searchLower) ||
+            (c.first_name && c.first_name.toLowerCase().includes(searchLower)) ||
+            (c.last_name && c.last_name.toLowerCase().includes(searchLower))
+        );
+    }
+
+    if (filteredContacts.length === 0) {
+        contactsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">No contacts found</div>';
+        return;
+    }
+
+    contactsList.innerHTML = filteredContacts.map(contact => {
+        const inList = listContactIds.has(contact.id);
+        return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #f0f0f0;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500; color: #333; margin-bottom: 3px;">
+                        ${escapeHtml(contact.first_name || '')} ${escapeHtml(contact.last_name || '')}
+                    </div>
+                    <div style="font-size: 13px; color: #666;">
+                        ${escapeHtml(contact.email)}
+                    </div>
+                </div>
+                <div>
+                    ${inList ? `
+                        <button class="btn btn-danger" onclick="removeContactFromList('${currentManagingListId}', '${contact.id}')" style="font-size: 12px; padding: 6px 12px;">
+                            Remove
+                        </button>
+                    ` : `
+                        <button class="btn btn-primary" onclick="addContactToList('${currentManagingListId}', '${contact.id}')" style="font-size: 12px; padding: 6px 12px;">
+                            Add
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add search listener
+    const searchInput = document.getElementById('listContactSearch');
+    searchInput.oninput = (e) => renderListContacts(e.target.value);
+}
+
+// Add contact to list
+async function addContactToList(listId, contactId) {
+    try {
+        const result = await window.api.addContactsToList({
+            listId,
+            contactIds: [contactId]
+        });
+
+        if (result.success) {
+            showNotification('Contact added to list', 'success');
+            await loadListContacts(listId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to add contact: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error adding contact to list:', error);
+        showNotification('Failed to add contact to list', 'error');
+    }
+}
+
+// Remove contact from list
+async function removeContactFromList(listId, contactId) {
+    try {
+        const result = await window.api.removeContactFromList({
+            listId,
+            contactId
+        });
+
+        if (result.success) {
+            showNotification('Contact removed from list', 'success');
+            await loadListContacts(listId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to remove contact: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error removing contact from list:', error);
+        showNotification('Failed to remove contact from list', 'error');
+    }
+}
+
+// Add all contacts to current list
+async function addAllContactsToCurrentList() {
+    if (!currentManagingListId) return;
+
+    try {
+        const allContactIds = contacts.map(c => c.id);
+        const result = await window.api.addContactsToList({
+            listId: currentManagingListId,
+            contactIds: allContactIds
+        });
+
+        if (result.success) {
+            showNotification('All contacts added to list', 'success');
+            await loadListContacts(currentManagingListId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to add all contacts: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error adding all contacts:', error);
+        showNotification('Failed to add all contacts', 'error');
+    }
+}
+
+// Remove all contacts from current list
+async function removeAllContactsFromCurrentList() {
+    if (!currentManagingListId) return;
+    if (!confirm('Remove all contacts from this list?')) return;
+
+    try {
+        const result = await window.api.removeAllContactsFromList(currentManagingListId);
+
+        if (result.success) {
+            showNotification('All contacts removed from list', 'success');
+            await loadListContacts(currentManagingListId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to remove all contacts: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error removing all contacts:', error);
+        showNotification('Failed to remove all contacts', 'error');
     }
 }
 

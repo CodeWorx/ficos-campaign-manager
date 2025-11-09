@@ -1739,6 +1739,62 @@
         </div>
     </div>
 
+    <!-- Campaign Analytics Modal -->
+    <div class="modal" id="campaignAnalyticsModal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 id="analyticsModalTitle">📊 Campaign Analytics</h2>
+                <span class="close" onclick="closeModal('campaignAnalyticsModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Sent</div>
+                        <div class="stat-value" id="analyticsTotalSent" style="color: #667eea;">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Opens</div>
+                        <div class="stat-value" id="analyticsTotalOpens" style="color: #27ae60;">0</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 5px;">
+                            <span id="analyticsOpenRate">0%</span> open rate
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Clicks</div>
+                        <div class="stat-value" id="analyticsTotalClicks" style="color: #3498db;">0</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 5px;">
+                            <span id="analyticsClickRate">0%</span> click rate
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Bounces</div>
+                        <div class="stat-value" id="analyticsTotalBounces" style="color: #e74c3c;">0</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 5px;">
+                            <span id="analyticsBounceRate">0%</span> bounce rate
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: #f9f9f9; padding: 20px; border-radius: 8px;">
+                    <h3 style="margin: 0 0 15px 0; color: #333;">Engagement Details</h3>
+
+                    <div id="analyticsEngagementList" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Engagement details will be rendered here -->
+                    </div>
+
+                    <div id="analyticsNoData" style="text-align: center; padding: 40px; color: #999; display: none;">
+                        <div style="font-size: 48px; margin-bottom: 15px;">📊</div>
+                        <p>No engagement data available yet.</p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="btn btn-primary" onclick="closeModal('campaignAnalyticsModal')">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ToastUI Editor JavaScript -->
     <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
 

@@ -1400,22 +1400,27 @@ ipcMain.handle('get-campaign-analytics', (event, campaignId) => {
   try {
     const emails = db.prepare('SELECT * FROM campaign_emails WHERE campaign_id = ?').all(campaignId);
     const responses = db.prepare('SELECT * FROM form_responses WHERE campaign_id = ?').all(campaignId);
-    
+
     const totalSent = emails.length;
     const totalOpened = emails.filter(e => e.opened).length;
     const totalClicked = emails.filter(e => e.clicked).length;
+    const totalBounced = emails.filter(e => e.bounced).length;
     const totalResponses = responses.length;
-    
+
     return {
-      totalSent,
-      totalOpened,
-      totalClicked,
-      totalResponses,
-      openRate: totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(2) : 0,
-      clickRate: totalSent > 0 ? ((totalClicked / totalSent) * 100).toFixed(2) : 0,
-      responseRate: totalSent > 0 ? ((totalResponses / totalSent) * 100).toFixed(2) : 0
+      total_sent: totalSent,
+      total_opens: totalOpened,
+      total_clicks: totalClicked,
+      total_bounces: totalBounced,
+      total_responses: totalResponses,
+      open_rate: totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(2) : 0,
+      click_rate: totalSent > 0 ? ((totalClicked / totalSent) * 100).toFixed(2) : 0,
+      bounce_rate: totalSent > 0 ? ((totalBounced / totalSent) * 100).toFixed(2) : 0,
+      response_rate: totalSent > 0 ? ((totalResponses / totalSent) * 100).toFixed(2) : 0,
+      emails: emails // Include individual email records for detailed view
     };
   } catch (error) {
+    log('error', 'Error getting campaign analytics:', error);
     return { error: error.message };
   }
 });

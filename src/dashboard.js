@@ -233,6 +233,7 @@ function renderCampaigns() {
             <td>
                 <button class="btn btn-secondary" onclick="viewCampaign('${campaign.id}')">View</button>
                 <button class="btn btn-secondary" onclick="editCampaign('${campaign.id}')">Edit</button>
+                ${campaign.status === 'SENT' ? `<button class="btn btn-secondary" onclick="viewCampaignAnalytics('${campaign.id}')">📊 Analytics</button>` : ''}
                 ${currentUser.role === 'OWNER' ? `<button class="btn btn-danger" onclick="deleteCampaign('${campaign.id}')">Delete</button>` : ''}
             </td>
         </tr>
@@ -2274,6 +2275,119 @@ async function removeAllContactsFromCurrentList() {
         console.error('Error removing all contacts:', error);
         showNotification('Failed to remove all contacts', 'error');
     }
+}
+
+// ===== CAMPAIGN ANALYTICS =====
+
+async function viewCampaignAnalytics(campaignId) {
+    try {
+        const campaign = campaigns.find(c => c.id === campaignId);
+        if (!campaign) {
+            showNotification('Campaign not found', 'error');
+            return;
+        }
+
+        // Set modal title
+        document.getElementById('analyticsModalTitle').textContent = `📊 Analytics: ${campaign.name}`;
+
+        // Fetch analytics data
+        const analytics = await window.api.getCampaignAnalytics(campaignId);
+
+        if (!analytics) {
+            showNotification('Failed to load analytics', 'error');
+            return;
+        }
+
+        // Calculate metrics
+        const totalSent = analytics.total_sent || 0;
+        const totalOpens = analytics.total_opens || 0;
+        const totalClicks = analytics.total_clicks || 0;
+        const totalBounces = analytics.total_bounces || 0;
+
+        const openRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : 0;
+        const clickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : 0;
+        const bounceRate = totalSent > 0 ? ((totalBounces / totalSent) * 100).toFixed(1) : 0;
+
+        // Update stat cards
+        document.getElementById('analyticsTotalSent').textContent = totalSent;
+        document.getElementById('analyticsTotalOpens').textContent = totalOpens;
+        document.getElementById('analyticsOpenRate').textContent = `${openRate}%`;
+        document.getElementById('analyticsTotalClicks').textContent = totalClicks;
+        document.getElementById('analyticsClickRate').textContent = `${clickRate}%`;
+        document.getElementById('analyticsTotalBounces').textContent = totalBounces;
+        document.getElementById('analyticsBounceRate').textContent = `${bounceRate}%`;
+
+        // Render engagement details
+        renderEngagementDetails(analytics.emails || []);
+
+        // Show modal
+        document.getElementById('campaignAnalyticsModal').classList.add('show');
+    } catch (error) {
+        console.error('Error loading campaign analytics:', error);
+        showNotification('Failed to load campaign analytics', 'error');
+    }
+}
+
+function renderEngagementDetails(emails) {
+    const engagementList = document.getElementById('analyticsEngagementList');
+    const noDataDiv = document.getElementById('analyticsNoData');
+
+    if (!emails || emails.length === 0) {
+        engagementList.style.display = 'none';
+        noDataDiv.style.display = 'block';
+        return;
+    }
+
+    engagementList.style.display = 'block';
+    noDataDiv.style.display = 'none';
+
+    engagementList.innerHTML = emails.map(email => {
+        const statusBadges = [];
+
+        if (email.opened) {
+            statusBadges.push('<span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">✓ Opened</span>');
+        }
+
+        if (email.clicked) {
+            statusBadges.push('<span style="background: #3498db; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">🔗 Clicked</span>');
+        }
+
+        if (email.bounced) {
+            statusBadges.push('<span style="background: #e74c3c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">⚠ Bounced</span>');
+        }
+
+        if (email.unsubscribed) {
+            statusBadges.push('<span style="background: #95a5a6; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">🚫 Unsubscribed</span>');
+        }
+
+        if (statusBadges.length === 0) {
+            statusBadges.push('<span style="background: #95a5a6; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">📤 Sent</span>');
+        }
+
+        // Find contact details
+        const contact = contacts.find(c => c.id === email.contact_id);
+        const contactName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email : 'Unknown';
+        const contactEmail = contact ? contact.email : email.contact_id;
+
+        return `
+            <div style="border-bottom: 1px solid #e0e0e0; padding: 12px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-weight: 500; color: #333; margin-bottom: 3px;">${escapeHtml(contactName)}</div>
+                        <div style="font-size: 13px; color: #666;">${escapeHtml(contactEmail)}</div>
+                    </div>
+                </div>
+                <div style="margin-top: 8px;">
+                    ${statusBadges.join('')}
+                </div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                    ${email.sent_at ? `Sent: ${formatDate(email.sent_at)}` : ''}
+                    ${email.opened_at ? ` | Opened: ${formatDate(email.opened_at)}` : ''}
+                    ${email.clicked_at ? ` | Clicked: ${formatDate(email.clicked_at)}` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Initialize when page loads

@@ -50,14 +50,25 @@ function setupNavigation() {
         item.addEventListener('click', function() {
             const page = this.getAttribute('data-page');
             
+            // Special case: emailConfig opens settings modal
+            if (page === 'emailConfig') {
+                openSettings();
+                // Switch to email settings tab
+                setTimeout(() => switchSettingsTab('email'), 100);
+                return;
+            }
+
             // Update active nav
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             this.classList.add('active');
-            
+
             // Show corresponding section
             document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
-            document.getElementById(page + 'Section').classList.add('active');
-            
+            const section = document.getElementById(page + 'Section');
+            if (section) {
+                section.classList.add('active');
+            }
+
             // Load data for that section
             switch(page) {
                 case 'dashboard':
@@ -71,9 +82,6 @@ function setupNavigation() {
                     break;
                 case 'responses':
                     loadResponses();
-                    break;
-                case 'email-config':
-                    loadEmailConfigs();
                     break;
                 case 'users':
                     loadUsers();

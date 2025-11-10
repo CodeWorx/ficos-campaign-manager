@@ -696,13 +696,71 @@
     </div>
     
     <script>
+        // Aggressively enable all inputs
+        function enableInputs() {
+            console.log('[SETUP-WIZARD] Enabling all inputs...');
+            try {
+                document.querySelectorAll('input, textarea, select, button').forEach((elem, index) => {
+                    elem.removeAttribute('disabled');
+                    elem.removeAttribute('readonly');
+                    elem.setAttribute('autocomplete', elem.type === 'password' ? 'new-password' : 'on');
+
+                    elem.style.setProperty('pointer-events', 'auto', 'important');
+                    elem.style.setProperty('user-select', 'text', 'important');
+                    elem.style.setProperty('-webkit-user-select', 'text', 'important');
+                    elem.style.setProperty('opacity', '1', 'important');
+                    elem.style.setProperty('cursor', elem.tagName === 'BUTTON' ? 'pointer' : 'text', 'important');
+
+                    elem.addEventListener('click', function(e) {
+                        this.removeAttribute('disabled');
+                        this.removeAttribute('readonly');
+                        this.focus();
+                    }, { once: false });
+
+                    elem.addEventListener('focus', function() {
+                        this.removeAttribute('disabled');
+                        this.removeAttribute('readonly');
+                    }, { once: false });
+
+                    elem.addEventListener('mousedown', function() {
+                        this.removeAttribute('disabled');
+                        this.removeAttribute('readonly');
+                    }, { once: false });
+                });
+                console.log('[SETUP-WIZARD] All inputs enabled');
+            } catch (error) {
+                console.error('[SETUP-WIZARD] Error enabling inputs:', error);
+            }
+        }
+
+        // Watch for DOM changes
+        const inputObserver = new MutationObserver(() => enableInputs());
+
+        // Enable inputs on load
+        enableInputs();
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('[SETUP-WIZARD] DOM loaded, enabling inputs');
+            enableInputs();
+            inputObserver.observe(document.body, {
+                attributes: true,
+                attributeFilter: ['disabled', 'readonly'],
+                subtree: true
+            });
+        });
+
+        // Enable after delays
+        setTimeout(enableInputs, 100);
+        setTimeout(enableInputs, 500);
+        setTimeout(enableInputs, 1000);
+        setTimeout(enableInputs, 2000);
+
         let currentStep = 1;
         let setupData = {
             importOption: 'skip',
             csvData: null,
             logoData: null
         };
-        
+
         function nextStep(step) {
             // Validate current step
             if (!validateStep(step)) return;

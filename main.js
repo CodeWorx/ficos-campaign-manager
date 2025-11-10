@@ -895,12 +895,37 @@ ipcMain.handle('get-campaign', (event, id) => {
 });
 
 ipcMain.handle('update-campaign', (event, data) => {
-  const { id, name, description, formHtml, status } = data;
-  
-  const stmt = db.prepare('UPDATE campaigns SET name = ?, description = ?, form_html = ?, status = ? WHERE id = ?');
-  stmt.run(name, description, formHtml, status, id);
-  
-  return { success: true };
+  try {
+    const { id, name, description, formHtml, status } = data;
+
+    log('info', 'Updating campaign', { id, name });
+
+    // Only update status if provided, otherwise leave it unchanged
+    let stmt, params;
+    if (status !== undefined) {
+      stmt = db.prepare('UPDATE campaigns SET name = ?, description = ?, form_html = ?, status = ? WHERE id = ?');
+      params = [name, description, formHtml, status, id];
+    } else {
+      stmt = db.prepare('UPDATE campaigns SET name = ?, description = ?, form_html = ? WHERE id = ?');
+      params = [name, description, formHtml, id];
+    }
+
+    const result = stmt.run(...params);
+
+    // Force WAL checkpoint to persist data
+    db.pragma('wal_checkpoint(PASSIVE)');
+
+    if (result.changes === 0) {
+      log('warn', 'Campaign update affected 0 rows', { id });
+      return { success: false, error: 'Campaign not found or no changes made' };
+    }
+
+    log('info', 'Campaign updated successfully', { id, changes: result.changes });
+    return { success: true };
+  } catch (error) {
+    log('error', 'Error updating campaign:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('delete-campaign', (event, id) => {
@@ -1268,15 +1293,26 @@ ipcMain.handle('get-campaign-templates', (event, filters) => {
 });
 
 ipcMain.handle('create-campaign-template', (event, data) => {
-  const { name, description, category, htmlContent, thumbnail, userId } = data;
-  const id = uuidv4();
+  try {
+    const { name, description, category, htmlContent, thumbnail, userId } = data;
+    const id = uuidv4();
 
-  const stmt = db.prepare('INSERT INTO campaign_templates (id, name, description, category, html_content, thumbnail, is_system, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-  stmt.run(id, name, description, category, htmlContent, thumbnail || null, 0, userId);
+    log('info', 'Creating campaign template', { name, category, userId });
 
-  logAudit(userId, 'CREATE_CAMPAIGN_TEMPLATE', 'campaign_template', id, `Created campaign template: ${name}`);
+    const stmt = db.prepare('INSERT INTO campaign_templates (id, name, description, category, html_content, thumbnail, is_system, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    stmt.run(id, name, description, category, htmlContent, thumbnail || null, 0, userId);
 
-  return { success: true, id };
+    // Force WAL checkpoint to persist data
+    db.pragma('wal_checkpoint(PASSIVE)');
+
+    logAudit(userId, 'CREATE_CAMPAIGN_TEMPLATE', 'campaign_template', id, `Created campaign template: ${name}`);
+
+    log('info', 'Campaign template created successfully', { id, name });
+    return { success: true, id };
+  } catch (error) {
+    log('error', 'Error creating campaign template:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 ipcMain.handle('delete-campaign-template', (event, data) => {

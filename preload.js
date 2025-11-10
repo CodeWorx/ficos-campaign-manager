@@ -45,12 +45,18 @@ contextBridge.exposeInMainWorld('api', {
   // Contact Lists
   getContactLists: (userId) => ipcRenderer.invoke('get-contact-lists', userId),
   createContactList: (data) => ipcRenderer.invoke('create-contact-list', data),
+  deleteContactList: (listId) => ipcRenderer.invoke('delete-contact-list', listId),
   addContactsToList: (data) => ipcRenderer.invoke('add-contacts-to-list', data),
+  removeContactFromList: (data) => ipcRenderer.invoke('remove-contact-from-list', data),
+  removeAllContactsFromList: (listId) => ipcRenderer.invoke('remove-all-contacts-from-list', listId),
   getListContacts: (listId) => ipcRenderer.invoke('get-list-contacts', listId),
   
   // Email configs
   getEmailConfigs: () => ipcRenderer.invoke('get-email-configs'),
   saveEmailConfig: (data) => ipcRenderer.invoke('save-email-config', data),
+  testSmtpConnection: (data) => ipcRenderer.invoke('test-smtp-connection', data),
+  testEmailConfig: (configId) => ipcRenderer.invoke('test-email-config', configId),
+  setDefaultEmailConfig: (configId) => ipcRenderer.invoke('set-default-email-config', configId),
   
   // Email Templates
   getEmailTemplates: (userId) => ipcRenderer.invoke('get-email-templates', userId),
@@ -71,7 +77,11 @@ contextBridge.exposeInMainWorld('api', {
   getUsers: () => ipcRenderer.invoke('get-users'),
   createUser: (data) => ipcRenderer.invoke('create-user', data),
   deleteUser: (id) => ipcRenderer.invoke('delete-user', id),
-  
+  getUserPreferences: (userId) => ipcRenderer.invoke('get-user-preferences', userId),
+  saveUserPreferences: (data) => ipcRenderer.invoke('save-user-preferences', data),
+  getUserProfile: (userId) => ipcRenderer.invoke('get-user-profile', userId),
+  saveUserProfile: (data) => ipcRenderer.invoke('save-user-profile', data),
+
   // NEW: App Control
   quitApp: () => ipcRenderer.invoke('quit-app'),
   

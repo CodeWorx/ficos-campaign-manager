@@ -50,14 +50,25 @@ function setupNavigation() {
         item.addEventListener('click', function() {
             const page = this.getAttribute('data-page');
             
+            // Special case: emailConfig opens settings modal
+            if (page === 'emailConfig') {
+                openSettings();
+                // Switch to email settings tab
+                setTimeout(() => switchSettingsTab('email'), 100);
+                return;
+            }
+
             // Update active nav
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             this.classList.add('active');
-            
+
             // Show corresponding section
             document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
-            document.getElementById(page + 'Section').classList.add('active');
-            
+            const section = document.getElementById(page + 'Section');
+            if (section) {
+                section.classList.add('active');
+            }
+
             // Load data for that section
             switch(page) {
                 case 'dashboard':
@@ -71,9 +82,6 @@ function setupNavigation() {
                     break;
                 case 'responses':
                     loadResponses();
-                    break;
-                case 'email-config':
-                    loadEmailConfigs();
                     break;
                 case 'users':
                     loadUsers();
@@ -233,6 +241,7 @@ function renderCampaigns() {
             <td>
                 <button class="btn btn-secondary" onclick="viewCampaign('${campaign.id}')">View</button>
                 <button class="btn btn-secondary" onclick="editCampaign('${campaign.id}')">Edit</button>
+                ${campaign.status === 'SENT' ? `<button class="btn btn-secondary" onclick="viewCampaignAnalytics('${campaign.id}')">📊 Analytics</button>` : ''}
                 ${currentUser.role === 'OWNER' ? `<button class="btn btn-danger" onclick="deleteCampaign('${campaign.id}')">Delete</button>` : ''}
             </td>
         </tr>
@@ -371,7 +380,7 @@ function renderUsers() {
 // Campaign operations
 
 // Create custom toolbar button for quick template insertion
-function createTemplateButton(label, templateId) {
+function createTemplateButton(label, action) {
     const button = document.createElement('button');
     button.className = 'toastui-editor-toolbar-icons';
     button.style.cssText = 'background: none; border: none; color: #333; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: 500;';
@@ -382,15 +391,25 @@ function createTemplateButton(label, templateId) {
         e.preventDefault();
         e.stopPropagation();
 
-        // Load templates if not already loaded
+        // Handle special actions
+        if (action === 'social-modal') {
+            showSocialIconSelector();
+            return;
+        }
+        if (action === 'cta-modal') {
+            showCTASelector();
+            return;
+        }
+
+        // Default: Load templates if not already loaded
         if (!allTemplates || allTemplates.length === 0) {
             await loadTemplates();
         }
 
         // Find and insert the template
-        const template = allTemplates.find(t => t.id === templateId);
+        const template = allTemplates.find(t => t.id === action);
         if (template) {
-            insertTemplate(templateId);
+            insertTemplate(action);
         }
     };
 
@@ -451,12 +470,12 @@ function showCreateCampaign() {
                             name: 'insertFooter'
                         },
                         {
-                            el: createTemplateButton('📱 Social', 'social-facebook'),
-                            tooltip: 'Insert Social Icon',
+                            el: createTemplateButton('📱 Social', 'social-modal'),
+                            tooltip: 'Insert Social Icons',
                             name: 'insertSocial'
                         },
                         {
-                            el: createTemplateButton('🔘 CTA', 'cta-email'),
+                            el: createTemplateButton('🔘 CTA', 'cta-modal'),
                             tooltip: 'Insert Call-to-Action',
                             name: 'insertCTA'
                         }
@@ -475,6 +494,11 @@ async function createCampaign(event) {
 
     // Get HTML from ToastUI Editor
     const formHtml = campaignEditor ? campaignEditor.getHTML() : '';
+
+    // Check if we're editing an existing campaign
+    const form = document.getElementById('createCampaignForm');
+    const editingId = form.dataset.editingId;
+    const isEditMode = !!editingId;
 
     // Get send option
     const sendOption = document.querySelector('input[name="sendOption"]:checked')?.value || 'draft';
@@ -503,23 +527,39 @@ async function createCampaign(event) {
     }
 
     try {
-        const result = await window.api.createCampaign({
-            name,
-            description,
-            formHtml,
-            userId: currentUser.userId
-        });
+        let result;
+        let campaignId;
+
+        if (isEditMode) {
+            // Update existing campaign
+            result = await window.api.updateCampaign({
+                id: editingId,
+                name,
+                description,
+                formHtml
+            });
+            campaignId = editingId;
+        } else {
+            // Create new campaign
+            result = await window.api.createCampaign({
+                name,
+                description,
+                formHtml,
+                userId: currentUser.userId
+            });
+            campaignId = result.id;
+        }
 
         if (result.success || result.id) {
-            const campaignId = result.id;
 
             // Handle scheduling if applicable
             if (sendOption === 'schedule' && scheduledFor) {
                 await window.api.scheduleCampaign({
                     campaignId,
-                    scheduledFor
+                    scheduledFor,
+                    contactIds: selectedRecipients
                 });
-                showNotification(`Campaign scheduled for ${new Date(scheduledFor).toLocaleString()}`, 'success');
+                showNotification(`Campaign scheduled for ${new Date(scheduledFor).toLocaleString()} for ${selectedRecipients.length} recipient(s)`, 'success');
             }
 
             // Handle immediate send
@@ -546,9 +586,17 @@ async function createCampaign(event) {
             document.querySelector('input[name="sendOption"][value="draft"]').checked = true;
             updateSendOptions();
 
-            await loadCampaigns();
+            // Reset edit mode
+            delete form.dataset.editingId;
+            const submitButton = form.querySelector('button[type="submit"]');
+            submitButton.textContent = 'Create Campaign';
 
-            if (sendOption === 'draft') {
+            await loadCampaigns();
+            await loadDashboard(); // Reload dashboard to update scheduled campaigns
+
+            if (isEditMode) {
+                showNotification('Campaign updated successfully', 'success');
+            } else if (sendOption === 'draft') {
                 showNotification('Campaign created as draft', 'success');
             }
         } else {
@@ -868,6 +916,15 @@ function openSettings() {
     // Load log path
     loadLogPath();
 
+    // Load email configurations
+    loadSavedEmailConfigs();
+
+    // Load user preferences
+    loadUserPreferencesIntoForm();
+
+    // Load user profile
+    loadUserProfile();
+
     // Show the modal
     document.getElementById('settingsModal').classList.add('show');
 }
@@ -888,6 +945,18 @@ function formatDate(dateString) {
 
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('show');
+
+    // Reset campaign form edit mode when closing
+    if (modalId === 'createCampaignModal') {
+        const form = document.getElementById('createCampaignForm');
+        if (form && form.dataset.editingId) {
+            delete form.dataset.editingId;
+            const submitButton = form.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.textContent = 'Create Campaign';
+            }
+        }
+    }
 }
 
 async function logout() {
@@ -1161,6 +1230,312 @@ async function loadLogPath() {
     }
 }
 
+// ===== EMAIL SETTINGS FUNCTIONS =====
+
+// Save Email Settings (SMTP Configuration)
+async function saveEmailSettings(event) {
+    event.preventDefault();
+
+    const configName = document.getElementById('smtpConfigName').value.trim();
+    const smtpHost = document.getElementById('smtpHost').value.trim();
+    const smtpPort = parseInt(document.getElementById('smtpPort').value);
+    const smtpUser = document.getElementById('smtpUser').value.trim();
+    const smtpPassword = document.getElementById('smtpPassword').value;
+    const fromEmail = document.getElementById('smtpFromEmail').value.trim();
+    const fromName = document.getElementById('smtpFromName').value.trim();
+    const isDefault = document.getElementById('smtpIsDefault').checked;
+
+    // Validate inputs
+    if (!configName || !smtpHost || !smtpPort || !smtpUser || !smtpPassword || !fromEmail || !fromName) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+
+    if (smtpPort < 1 || smtpPort > 65535) {
+        showNotification('Invalid port number', 'error');
+        return;
+    }
+
+    try {
+        const result = await window.api.saveEmailConfig({
+            name: configName,
+            smtpHost,
+            smtpPort,
+            smtpUser,
+            smtpPassword,
+            fromEmail,
+            fromName,
+            isDefault
+        });
+
+        if (result.success || result.id) {
+            showNotification('Email configuration saved successfully!', 'success');
+
+            // Clear the form
+            document.getElementById('emailSettingsForm').reset();
+
+            // Reload saved configurations
+            await loadSavedEmailConfigs();
+        } else {
+            showNotification('Failed to save email configuration: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving email settings:', error);
+        showNotification('Failed to save email settings. Please try again.', 'error');
+    }
+}
+
+// Test SMTP Connection
+async function testSmtpConnection() {
+    const smtpHost = document.getElementById('smtpHost').value.trim();
+    const smtpPort = parseInt(document.getElementById('smtpPort').value);
+    const smtpUser = document.getElementById('smtpUser').value.trim();
+    const smtpPassword = document.getElementById('smtpPassword').value;
+
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPassword) {
+        showNotification('Please fill in SMTP host, port, username, and password', 'error');
+        return;
+    }
+
+    try {
+        showNotification('Testing SMTP connection...', 'info');
+
+        // Call test connection API (we'll need to add this handler)
+        const result = await window.api.testSmtpConnection({
+            smtpHost,
+            smtpPort,
+            smtpUser,
+            smtpPassword
+        });
+
+        if (result.success) {
+            showNotification('✓ SMTP connection successful!', 'success');
+        } else {
+            showNotification('SMTP connection failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error testing SMTP connection:', error);
+        showNotification('Failed to test connection: ' + error.message, 'error');
+    }
+}
+
+// Load saved email configurations
+async function loadSavedEmailConfigs() {
+    try {
+        const configs = await window.api.getEmailConfigs();
+        renderEmailConfigsList(configs);
+    } catch (error) {
+        console.error('Error loading email configs:', error);
+    }
+}
+
+// Render email configurations list
+function renderEmailConfigsList(configs) {
+    const configsList = document.getElementById('emailConfigsList');
+
+    if (!configs || configs.length === 0) {
+        configsList.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #999;">
+                No email configurations saved yet
+            </div>
+        `;
+        return;
+    }
+
+    configsList.innerHTML = configs.map(config => `
+        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex: 1;">
+                <div style="font-weight: 600; color: #333; margin-bottom: 5px;">
+                    ${escapeHtml(config.name)}
+                    ${config.is_default ? '<span style="background: #27ae60; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 8px;">DEFAULT</span>' : ''}
+                </div>
+                <div style="font-size: 13px; color: #666; margin-bottom: 3px;">
+                    <strong>Host:</strong> ${escapeHtml(config.smtp_host)}:${config.smtp_port}
+                </div>
+                <div style="font-size: 13px; color: #666; margin-bottom: 3px;">
+                    <strong>From:</strong> ${escapeHtml(config.from_name)} &lt;${escapeHtml(config.from_email)}&gt;
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary" onclick="testExistingEmailConfig('${config.id}')" style="font-size: 12px; padding: 6px 12px;">
+                    Test
+                </button>
+                ${!config.is_default ? `
+                    <button class="btn btn-secondary" onclick="setDefaultEmailConfig('${config.id}')" style="font-size: 12px; padding: 6px 12px;">
+                        Set Default
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+// Test existing email configuration
+async function testExistingEmailConfig(configId) {
+    try {
+        showNotification('Testing email configuration...', 'info');
+
+        const result = await window.api.testEmailConfig(configId);
+
+        if (result.success) {
+            showNotification('✓ Email configuration test successful!', 'success');
+        } else {
+            showNotification('Email configuration test failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error testing email config:', error);
+        showNotification('Failed to test email configuration', 'error');
+    }
+}
+
+// Set default email configuration
+async function setDefaultEmailConfig(configId) {
+    try {
+        const result = await window.api.setDefaultEmailConfig(configId);
+
+        if (result.success) {
+            showNotification('Default email configuration updated', 'success');
+            await loadSavedEmailConfigs();
+        } else {
+            showNotification('Failed to set default: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error setting default email config:', error);
+        showNotification('Failed to set default email configuration', 'error');
+    }
+}
+
+// ===== USER PREFERENCES FUNCTIONS =====
+
+// Save User Preferences
+async function saveUserPreferences(event) {
+    event.preventDefault();
+
+    const displayName = document.getElementById('prefDisplayName').value.trim();
+    const notifyCampaignSent = document.getElementById('prefNotifyCampaignSent').checked;
+    const notifyNewResponse = document.getElementById('prefNotifyNewResponse').checked;
+    const notifyScheduledCampaign = document.getElementById('prefNotifyScheduledCampaign').checked;
+    const timezone = document.getElementById('prefTimezone').value;
+    const dateFormat = document.getElementById('prefDateFormat').value;
+
+    // Password change fields
+    const currentPassword = document.getElementById('prefCurrentPassword').value;
+    const newPassword = document.getElementById('prefNewPassword').value;
+    const confirmPassword = document.getElementById('prefConfirmPassword').value;
+
+    // Validate password change if attempting to change password
+    if (currentPassword || newPassword || confirmPassword) {
+        if (!currentPassword) {
+            showNotification('Please enter your current password', 'error');
+            return;
+        }
+        if (!newPassword) {
+            showNotification('Please enter a new password', 'error');
+            return;
+        }
+        if (newPassword.length < 6) {
+            showNotification('New password must be at least 6 characters', 'error');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            showNotification('New passwords do not match', 'error');
+            return;
+        }
+    }
+
+    try {
+        const preferencesData = {
+            userId: currentUser.userId,
+            displayName: displayName || currentUser.name,
+            notifications: {
+                campaignSent: notifyCampaignSent,
+                newResponse: notifyNewResponse,
+                scheduledCampaign: notifyScheduledCampaign
+            },
+            timezone,
+            dateFormat
+        };
+
+        // Add password change if provided
+        if (currentPassword && newPassword) {
+            preferencesData.passwordChange = {
+                currentPassword,
+                newPassword
+            };
+        }
+
+        const result = await window.api.saveUserPreferences(preferencesData);
+
+        if (result.success) {
+            showNotification('Preferences saved successfully!', 'success');
+
+            // Update current user display name if changed
+            if (displayName && displayName !== currentUser.name) {
+                currentUser.name = displayName;
+                document.getElementById('userName').textContent = displayName;
+                document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+            }
+
+            // Clear password fields
+            document.getElementById('prefCurrentPassword').value = '';
+            document.getElementById('prefNewPassword').value = '';
+            document.getElementById('prefConfirmPassword').value = '';
+
+            if (preferencesData.passwordChange) {
+                showNotification('Password changed successfully!', 'success');
+            }
+        } else {
+            showNotification('Failed to save preferences: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving user preferences:', error);
+        showNotification('Failed to save preferences. Please try again.', 'error');
+    }
+}
+
+// Load user preferences into form
+async function loadUserPreferencesIntoForm() {
+    try {
+        const preferences = await window.api.getUserPreferences(currentUser.userId);
+
+        if (preferences) {
+            // Set display name and email
+            document.getElementById('prefDisplayName').value = preferences.display_name || currentUser.name;
+            document.getElementById('prefEmail').value = currentUser.email;
+
+            // Set notifications
+            if (preferences.notifications) {
+                const notif = typeof preferences.notifications === 'string'
+                    ? JSON.parse(preferences.notifications)
+                    : preferences.notifications;
+
+                document.getElementById('prefNotifyCampaignSent').checked = notif.campaignSent !== false;
+                document.getElementById('prefNotifyNewResponse').checked = notif.newResponse !== false;
+                document.getElementById('prefNotifyScheduledCampaign').checked = notif.scheduledCampaign !== false;
+            }
+
+            // Set timezone
+            if (preferences.timezone) {
+                document.getElementById('prefTimezone').value = preferences.timezone;
+            }
+
+            // Set date format
+            if (preferences.date_format) {
+                document.getElementById('prefDateFormat').value = preferences.date_format;
+            }
+        } else {
+            // Set defaults
+            document.getElementById('prefDisplayName').value = currentUser.name;
+            document.getElementById('prefEmail').value = currentUser.email;
+        }
+    } catch (error) {
+        console.error('Error loading user preferences:', error);
+        // Set defaults if loading fails
+        document.getElementById('prefDisplayName').value = currentUser.name;
+        document.getElementById('prefEmail').value = currentUser.email;
+    }
+}
+
 // Setup form submissions
 document.addEventListener('DOMContentLoaded', function() {
     const createCampaignForm = document.getElementById('createCampaignForm');
@@ -1181,6 +1556,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const brandingForm = document.getElementById('brandingForm');
     if (brandingForm) {
         brandingForm.addEventListener('submit', saveCompanySettings);
+    }
+
+    const emailSettingsForm = document.getElementById('emailSettingsForm');
+    if (emailSettingsForm) {
+        emailSettingsForm.addEventListener('submit', saveEmailSettings);
+    }
+
+    const userPreferencesForm = document.getElementById('userPreferencesForm');
+    if (userPreferencesForm) {
+        userPreferencesForm.addEventListener('submit', saveUserPreferences);
+    }
+
+    const editContactListForm = document.getElementById('editContactListForm');
+    if (editContactListForm) {
+        editContactListForm.addEventListener('submit', saveContactList);
+    }
+
+    const profileForm = document.getElementById('profileForm');
+    if (profileForm) {
+        profileForm.addEventListener('submit', saveUserProfile);
     }
 });
 
@@ -1247,7 +1642,11 @@ function renderTemplates() {
     // Render template cards
     templateGrid.innerHTML = filteredTemplates.map(template => `
         <div class="template-card" onclick="insertTemplate('${template.id}')">
-            ${template.is_system ? '<div class="template-card-system-badge">Built-in</div>' : ''}
+            ${template.is_system ? '<div class="template-card-system-badge">Built-in</div>' : `
+                <button class="template-delete-btn" onclick="event.stopPropagation(); deleteTemplate('${template.id}')" title="Delete template">
+                    ×
+                </button>
+            `}
             <div class="template-card-preview">
                 <div style="font-size: 11px; color: #999; max-height: 120px; overflow: hidden; line-height: 1.4;">
                     ${escapeHtml(template.html_content).substring(0, 200)}...
@@ -1258,6 +1657,29 @@ function renderTemplates() {
             <div class="template-card-category">${escapeHtml(template.category)}</div>
         </div>
     `).join('');
+}
+
+// Delete user template
+async function deleteTemplate(templateId) {
+    if (!confirm('Delete this template? This action cannot be undone.')) return;
+
+    try {
+        const result = await window.api.deleteCampaignTemplate({
+            id: templateId,
+            userId: currentUser.userId
+        });
+
+        if (result.success) {
+            showNotification('Template deleted successfully', 'success');
+            await loadTemplates();
+            renderTemplates();
+        } else {
+            showNotification('Failed to delete template: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting template:', error);
+        showNotification('Failed to delete template', 'error');
+    }
 }
 
 // Insert template into editor
@@ -1588,6 +2010,595 @@ function updateSendOptions() {
     } else {
         scheduleOptions.style.display = 'none';
     }
+}
+
+// ===== CONTACT LISTS MANAGEMENT =====
+
+let contactLists = [];
+let currentEditingListId = null;
+let currentManagingListId = null;
+let listContacts = [];
+
+// Show contact lists management modal
+async function showManageContactLists() {
+    document.getElementById('contactListsModal').classList.add('show');
+    await loadContactLists();
+    renderContactLists();
+}
+
+// Load contact lists from database
+async function loadContactLists() {
+    try {
+        contactLists = await window.api.getContactLists(currentUser.userId);
+    } catch (error) {
+        console.error('Error loading contact lists:', error);
+        showNotification('Failed to load contact lists', 'error');
+    }
+}
+
+// Render contact lists
+function renderContactLists() {
+    const grid = document.getElementById('contactListsGrid');
+    const emptyState = document.getElementById('contactListsEmpty');
+
+    if (!contactLists || contactLists.length === 0) {
+        grid.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    grid.style.display = 'grid';
+    emptyState.style.display = 'none';
+
+    grid.innerHTML = contactLists.map(list => `
+        <div style="border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; background: white; transition: box-shadow 0.2s;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                <h3 style="margin: 0; color: #333; font-size: 18px;">${escapeHtml(list.name)}</h3>
+                <button class="btn btn-danger" onclick="deleteContactList('${list.id}')" style="padding: 4px 8px; font-size: 12px;">×</button>
+            </div>
+
+            ${list.description ? `<p style="color: #666; font-size: 13px; margin-bottom: 15px;">${escapeHtml(list.description)}</p>` : ''}
+
+            <div style="display: flex; gap: 8px; margin-top: 15px;">
+                <button class="btn btn-primary" onclick="showManageListContacts('${list.id}')" style="flex: 1; font-size: 13px; padding: 8px;">
+                    Manage Contacts
+                </button>
+            </div>
+
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f0f0;">
+                <span style="font-size: 12px; color: #999;">Created ${formatDate(list.created_at)}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Show create contact list modal
+function showCreateContactList() {
+    currentEditingListId = null;
+    document.getElementById('editListModalTitle').textContent = 'Create Contact List';
+    document.getElementById('listName').value = '';
+    document.getElementById('listDescription').value = '';
+    document.getElementById('editContactListModal').classList.add('show');
+}
+
+// Save contact list (create or update)
+async function saveContactList(event) {
+    event.preventDefault();
+
+    const name = document.getElementById('listName').value.trim();
+    const description = document.getElementById('listDescription').value.trim();
+
+    if (!name) {
+        showNotification('Please enter a list name', 'error');
+        return;
+    }
+
+    try {
+        const result = await window.api.createContactList({
+            name,
+            description,
+            userId: currentUser.userId
+        });
+
+        if (result.success || result.id) {
+            showNotification('Contact list saved successfully!', 'success');
+            closeModal('editContactListModal');
+            await loadContactLists();
+            renderContactLists();
+        } else {
+            showNotification('Failed to save contact list: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving contact list:', error);
+        showNotification('Failed to save contact list', 'error');
+    }
+}
+
+// Delete contact list
+async function deleteContactList(listId) {
+    if (!confirm('Delete this contact list? Contacts will not be deleted, only the list.')) return;
+
+    try {
+        const result = await window.api.deleteContactList(listId);
+
+        if (result.success) {
+            showNotification('Contact list deleted successfully', 'success');
+            await loadContactLists();
+            renderContactLists();
+        } else {
+            showNotification('Failed to delete contact list: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting contact list:', error);
+        showNotification('Failed to delete contact list', 'error');
+    }
+}
+
+// Show manage list contacts modal
+async function showManageListContacts(listId) {
+    currentManagingListId = listId;
+    const list = contactLists.find(l => l.id === listId);
+
+    if (!list) {
+        showNotification('List not found', 'error');
+        return;
+    }
+
+    document.getElementById('manageListContactsTitle').textContent = `Manage: ${list.name}`;
+    document.getElementById('manageListContactsModal').classList.add('show');
+
+    await loadListContacts(listId);
+    renderListContacts();
+}
+
+// Load contacts for a specific list
+async function loadListContacts(listId) {
+    try {
+        listContacts = await window.api.getListContacts(listId);
+    } catch (error) {
+        console.error('Error loading list contacts:', error);
+        listContacts = [];
+    }
+}
+
+// Render list contacts with add/remove functionality
+function renderListContacts(searchTerm = '') {
+    const contactsList = document.getElementById('listContactsList');
+    const searchLower = searchTerm.toLowerCase();
+
+    // Create a Set of contact IDs that are in this list
+    const listContactIds = new Set(listContacts.map(c => c.id));
+
+    // Filter contacts based on search
+    let filteredContacts = contacts;
+    if (searchTerm) {
+        filteredContacts = contacts.filter(c =>
+            c.email.toLowerCase().includes(searchLower) ||
+            (c.first_name && c.first_name.toLowerCase().includes(searchLower)) ||
+            (c.last_name && c.last_name.toLowerCase().includes(searchLower))
+        );
+    }
+
+    if (filteredContacts.length === 0) {
+        contactsList.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">No contacts found</div>';
+        return;
+    }
+
+    contactsList.innerHTML = filteredContacts.map(contact => {
+        const inList = listContactIds.has(contact.id);
+        return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #f0f0f0;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500; color: #333; margin-bottom: 3px;">
+                        ${escapeHtml(contact.first_name || '')} ${escapeHtml(contact.last_name || '')}
+                    </div>
+                    <div style="font-size: 13px; color: #666;">
+                        ${escapeHtml(contact.email)}
+                    </div>
+                </div>
+                <div>
+                    ${inList ? `
+                        <button class="btn btn-danger" onclick="removeContactFromList('${currentManagingListId}', '${contact.id}')" style="font-size: 12px; padding: 6px 12px;">
+                            Remove
+                        </button>
+                    ` : `
+                        <button class="btn btn-primary" onclick="addContactToList('${currentManagingListId}', '${contact.id}')" style="font-size: 12px; padding: 6px 12px;">
+                            Add
+                        </button>
+                    `}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Add search listener
+    const searchInput = document.getElementById('listContactSearch');
+    searchInput.oninput = (e) => renderListContacts(e.target.value);
+}
+
+// Add contact to list
+async function addContactToList(listId, contactId) {
+    try {
+        const result = await window.api.addContactsToList({
+            listId,
+            contactIds: [contactId]
+        });
+
+        if (result.success) {
+            showNotification('Contact added to list', 'success');
+            await loadListContacts(listId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to add contact: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error adding contact to list:', error);
+        showNotification('Failed to add contact to list', 'error');
+    }
+}
+
+// Remove contact from list
+async function removeContactFromList(listId, contactId) {
+    try {
+        const result = await window.api.removeContactFromList({
+            listId,
+            contactId
+        });
+
+        if (result.success) {
+            showNotification('Contact removed from list', 'success');
+            await loadListContacts(listId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to remove contact: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error removing contact from list:', error);
+        showNotification('Failed to remove contact from list', 'error');
+    }
+}
+
+// Add all contacts to current list
+async function addAllContactsToCurrentList() {
+    if (!currentManagingListId) return;
+
+    try {
+        const allContactIds = contacts.map(c => c.id);
+        const result = await window.api.addContactsToList({
+            listId: currentManagingListId,
+            contactIds: allContactIds
+        });
+
+        if (result.success) {
+            showNotification('All contacts added to list', 'success');
+            await loadListContacts(currentManagingListId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to add all contacts: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error adding all contacts:', error);
+        showNotification('Failed to add all contacts', 'error');
+    }
+}
+
+// Remove all contacts from current list
+async function removeAllContactsFromCurrentList() {
+    if (!currentManagingListId) return;
+    if (!confirm('Remove all contacts from this list?')) return;
+
+    try {
+        const result = await window.api.removeAllContactsFromList(currentManagingListId);
+
+        if (result.success) {
+            showNotification('All contacts removed from list', 'success');
+            await loadListContacts(currentManagingListId);
+            renderListContacts();
+        } else {
+            showNotification('Failed to remove all contacts: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error removing all contacts:', error);
+        showNotification('Failed to remove all contacts', 'error');
+    }
+}
+
+// ===== USER PROFILE MANAGEMENT =====
+
+async function saveUserProfile(event) {
+    event.preventDefault();
+
+    const profileData = {
+        userId: currentUser.userId,
+        socialLinks: {
+            facebook: document.getElementById('profileFacebook').value.trim(),
+            twitter: document.getElementById('profileTwitter').value.trim(),
+            linkedin: document.getElementById('profileLinkedIn').value.trim(),
+            instagram: document.getElementById('profileInstagram').value.trim(),
+            youtube: document.getElementById('profileYouTube').value.trim(),
+            tiktok: document.getElementById('profileTikTok').value.trim()
+        }
+    };
+
+    try {
+        const result = await window.api.saveUserProfile(profileData);
+
+        if (result.success) {
+            showNotification('Profile saved successfully!', 'success');
+        } else {
+            showNotification('Failed to save profile: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving profile:', error);
+        showNotification('Failed to save profile', 'error');
+    }
+}
+
+async function loadUserProfile() {
+    try {
+        const profile = await window.api.getUserProfile(currentUser.userId);
+
+        if (profile && profile.social_links) {
+            const links = typeof profile.social_links === 'string'
+                ? JSON.parse(profile.social_links)
+                : profile.social_links;
+
+            document.getElementById('profileFacebook').value = links.facebook || '';
+            document.getElementById('profileTwitter').value = links.twitter || '';
+            document.getElementById('profileLinkedIn').value = links.linkedin || '';
+            document.getElementById('profileInstagram').value = links.instagram || '';
+            document.getElementById('profileYouTube').value = links.youtube || '';
+            document.getElementById('profileTikTok').value = links.tiktok || '';
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+    }
+}
+
+// ===== SOCIAL ICON AND CTA INSERTION =====
+
+async function showSocialIconSelector() {
+    document.getElementById('socialIconSelectorModal').classList.add('show');
+
+    // Load user's saved social links to pre-populate URLs
+    try {
+        const profile = await window.api.getUserProfile(currentUser.userId);
+        if (profile && profile.social_links) {
+            const links = typeof profile.social_links === 'string'
+                ? JSON.parse(profile.social_links)
+                : profile.social_links;
+
+            // Store for later use when inserting
+            window.userSocialLinks = links;
+        }
+    } catch (error) {
+        console.error('Error loading social links:', error);
+    }
+}
+
+function showCTASelector() {
+    document.getElementById('ctaSelectorModal').classList.add('show');
+    // Reset form
+    document.getElementById('ctaButtonText').value = '';
+    document.getElementById('ctaButtonUrl').value = '';
+    document.getElementById('ctaButtonStyle').value = 'primary';
+}
+
+function insertSelectedSocialIcons() {
+    const selectedSocials = [];
+
+    // Use user's saved social links if available
+    const userLinks = window.userSocialLinks || {};
+
+    const socialMap = {
+        socialFacebook: { name: 'Facebook', url: userLinks.facebook || 'https://facebook.com', color: '#3b5998', icon: 'facebook' },
+        socialTwitter: { name: 'Twitter', url: userLinks.twitter || 'https://twitter.com', color: '#1DA1F2', icon: 'twitter' },
+        socialLinkedIn: { name: 'LinkedIn', url: userLinks.linkedin || 'https://linkedin.com', color: '#0077b5', icon: 'linkedin' },
+        socialInstagram: { name: 'Instagram', url: userLinks.instagram || 'https://instagram.com', color: '#E1306C', icon: 'instagram' },
+        socialYouTube: { name: 'YouTube', url: userLinks.youtube || 'https://youtube.com', color: '#FF0000', icon: 'youtube' },
+        socialTikTok: { name: 'TikTok', url: userLinks.tiktok || 'https://tiktok.com', color: '#000000', icon: 'tiktok' }
+    };
+
+    for (const [id, data] of Object.entries(socialMap)) {
+        if (document.getElementById(id).checked) {
+            selectedSocials.push(data);
+        }
+    }
+
+    if (selectedSocials.length === 0) {
+        showNotification('Please select at least one social network', 'error');
+        return;
+    }
+
+    // Build the social icons HTML
+    const socialHTML = `
+<div style="text-align: center; padding: 20px; background-color: #f5f5f5;">
+    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Connect with us:</p>
+    <div style="display: inline-block;">
+        ${selectedSocials.map(social => `
+            <a href="${social.url}" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background-color: ${social.color}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
+                    ${social.name.charAt(0)}
+                </div>
+            </a>
+        `).join('')}
+    </div>
+</div>`;
+
+    // Insert into editor
+    if (campaignEditor) {
+        try {
+            campaignEditor.insertHTML(socialHTML);
+            showNotification('Social icons inserted successfully!', 'success');
+            closeModal('socialIconSelectorModal');
+        } catch (error) {
+            console.error('Error inserting social icons:', error);
+            showNotification('Failed to insert social icons', 'error');
+        }
+    }
+}
+
+// Handle CTA form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const ctaForm = document.getElementById('ctaForm');
+    if (ctaForm) {
+        ctaForm.addEventListener('submit', insertCustomCTA);
+    }
+});
+
+function insertCustomCTA(event) {
+    event.preventDefault();
+
+    const buttonText = document.getElementById('ctaButtonText').value.trim();
+    const buttonUrl = document.getElementById('ctaButtonUrl').value.trim();
+    const buttonStyle = document.getElementById('ctaButtonStyle').value;
+
+    if (!buttonText || !buttonUrl) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+
+    // Define button styles
+    const styles = {
+        primary: 'background: linear-gradient(135deg, #667eea, #764ba2); color: white;',
+        success: 'background: linear-gradient(135deg, #2ecc71, #27ae60); color: white;',
+        info: 'background: linear-gradient(135deg, #3498db, #2980b9); color: white;',
+        warning: 'background: linear-gradient(135deg, #f39c12, #e67e22); color: white;',
+        danger: 'background: linear-gradient(135deg, #e74c3c, #c0392b); color: white;'
+    };
+
+    const ctaHTML = `
+<div style="text-align: center; padding: 30px 20px;">
+    <a href="${escapeHtml(buttonUrl)}" style="display: inline-block; padding: 15px 40px; ${styles[buttonStyle]} text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: transform 0.2s;">
+        ${escapeHtml(buttonText)}
+    </a>
+</div>`;
+
+    // Insert into editor
+    if (campaignEditor) {
+        try {
+            campaignEditor.insertHTML(ctaHTML);
+            showNotification('Call-to-Action button inserted successfully!', 'success');
+            closeModal('ctaSelectorModal');
+            document.getElementById('ctaForm').reset();
+        } catch (error) {
+            console.error('Error inserting CTA:', error);
+            showNotification('Failed to insert CTA button', 'error');
+        }
+    }
+}
+
+// ===== CAMPAIGN ANALYTICS =====
+
+async function viewCampaignAnalytics(campaignId) {
+    try {
+        const campaign = campaigns.find(c => c.id === campaignId);
+        if (!campaign) {
+            showNotification('Campaign not found', 'error');
+            return;
+        }
+
+        // Set modal title
+        document.getElementById('analyticsModalTitle').textContent = `📊 Analytics: ${campaign.name}`;
+
+        // Fetch analytics data
+        const analytics = await window.api.getCampaignAnalytics(campaignId);
+
+        if (!analytics) {
+            showNotification('Failed to load analytics', 'error');
+            return;
+        }
+
+        // Calculate metrics
+        const totalSent = analytics.total_sent || 0;
+        const totalOpens = analytics.total_opens || 0;
+        const totalClicks = analytics.total_clicks || 0;
+        const totalBounces = analytics.total_bounces || 0;
+
+        const openRate = totalSent > 0 ? ((totalOpens / totalSent) * 100).toFixed(1) : 0;
+        const clickRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : 0;
+        const bounceRate = totalSent > 0 ? ((totalBounces / totalSent) * 100).toFixed(1) : 0;
+
+        // Update stat cards
+        document.getElementById('analyticsTotalSent').textContent = totalSent;
+        document.getElementById('analyticsTotalOpens').textContent = totalOpens;
+        document.getElementById('analyticsOpenRate').textContent = `${openRate}%`;
+        document.getElementById('analyticsTotalClicks').textContent = totalClicks;
+        document.getElementById('analyticsClickRate').textContent = `${clickRate}%`;
+        document.getElementById('analyticsTotalBounces').textContent = totalBounces;
+        document.getElementById('analyticsBounceRate').textContent = `${bounceRate}%`;
+
+        // Render engagement details
+        renderEngagementDetails(analytics.emails || []);
+
+        // Show modal
+        document.getElementById('campaignAnalyticsModal').classList.add('show');
+    } catch (error) {
+        console.error('Error loading campaign analytics:', error);
+        showNotification('Failed to load campaign analytics', 'error');
+    }
+}
+
+function renderEngagementDetails(emails) {
+    const engagementList = document.getElementById('analyticsEngagementList');
+    const noDataDiv = document.getElementById('analyticsNoData');
+
+    if (!emails || emails.length === 0) {
+        engagementList.style.display = 'none';
+        noDataDiv.style.display = 'block';
+        return;
+    }
+
+    engagementList.style.display = 'block';
+    noDataDiv.style.display = 'none';
+
+    engagementList.innerHTML = emails.map(email => {
+        const statusBadges = [];
+
+        if (email.opened) {
+            statusBadges.push('<span style="background: #27ae60; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">✓ Opened</span>');
+        }
+
+        if (email.clicked) {
+            statusBadges.push('<span style="background: #3498db; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">🔗 Clicked</span>');
+        }
+
+        if (email.bounced) {
+            statusBadges.push('<span style="background: #e74c3c; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">⚠ Bounced</span>');
+        }
+
+        if (email.unsubscribed) {
+            statusBadges.push('<span style="background: #95a5a6; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; margin-right: 5px;">🚫 Unsubscribed</span>');
+        }
+
+        if (statusBadges.length === 0) {
+            statusBadges.push('<span style="background: #95a5a6; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">📤 Sent</span>');
+        }
+
+        // Find contact details
+        const contact = contacts.find(c => c.id === email.contact_id);
+        const contactName = contact ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email : 'Unknown';
+        const contactEmail = contact ? contact.email : email.contact_id;
+
+        return `
+            <div style="border-bottom: 1px solid #e0e0e0; padding: 12px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-weight: 500; color: #333; margin-bottom: 3px;">${escapeHtml(contactName)}</div>
+                        <div style="font-size: 13px; color: #666;">${escapeHtml(contactEmail)}</div>
+                    </div>
+                </div>
+                <div style="margin-top: 8px;">
+                    ${statusBadges.join('')}
+                </div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                    ${email.sent_at ? `Sent: ${formatDate(email.sent_at)}` : ''}
+                    ${email.opened_at ? ` | Opened: ${formatDate(email.opened_at)}` : ''}
+                    ${email.clicked_at ? ` | Clicked: ${formatDate(email.clicked_at)}` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Initialize when page loads

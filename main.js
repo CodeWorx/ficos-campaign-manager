@@ -59,6 +59,8 @@ logger.info('Log file location:', logFile);
 function initDatabase() {
   const dbPath = path.join(app.getPath('userData'), 'ficos.db');
   logger.info('[DATABASE] Initializing database at:', dbPath);
+  console.log('[DATABASE] Full database path:', dbPath);
+  console.log('[DATABASE] User data directory:', app.getPath('userData'));
 
   db = new Database(dbPath);
 
@@ -68,6 +70,7 @@ function initDatabase() {
   db.pragma('foreign_keys = ON');
 
   logger.info('[DATABASE] WAL mode enabled, synchronous=FULL');
+  console.log('[DATABASE] Database initialized successfully');
 
   // Create tables
   db.exec(`
@@ -490,9 +493,19 @@ function populateDefaultTemplates() {
 
 // Check if setup is needed
 function needsSetup() {
-  const stmt = db.prepare('SELECT COUNT(*) as count FROM users');
-  const result = stmt.get();
-  return result.count === 0;
+  try {
+    if (!db) {
+      log('error', 'Database not initialized when checking needsSetup');
+      return true;
+    }
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM users');
+    const result = stmt.get();
+    log('info', 'needsSetup check - user count:', result.count);
+    return result.count === 0;
+  } catch (error) {
+    log('error', 'Error in needsSetup check:', error);
+    return true; // Assume setup needed if there's an error
+  }
 }
 
 // Check if TOS accepted
@@ -1656,14 +1669,27 @@ ipcMain.handle('complete-setup', async (event, data) => {
   try {
     const result = setupTransaction();
 
-    // Force database to flush to disk
+    // Force database to flush to disk with multiple strategies
+    console.log('[SETUP] Flushing database to disk...');
     db.pragma('wal_checkpoint(TRUNCATE)');
+    db.pragma('wal_checkpoint(RESTART)');
 
-    console.log('[SETUP] Database checkpointed and flushed');
+    // Verify the user was created
+    const userCheck = db.prepare('SELECT COUNT(*) as count FROM users').get();
+    console.log('[SETUP] User count after setup:', userCheck.count);
+
+    if (userCheck.count === 0) {
+      console.error('[SETUP] CRITICAL: User was not persisted!');
+      return { success: false, error: 'User creation failed to persist' };
+    }
+
+    console.log('[SETUP] Database checkpointed and flushed. Setup verified successful.');
+    log('info', 'Setup completed successfully', { userCount: userCheck.count });
 
     return result;
   } catch (error) {
     console.error('[SETUP] Fatal setup error:', error);
+    log('error', 'Setup failed', error);
     return { success: false, error: error.message };
   }
 });

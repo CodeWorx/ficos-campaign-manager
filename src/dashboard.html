@@ -1739,6 +1739,90 @@
         </div>
     </div>
 
+    <!-- Social Icon Selector Modal -->
+    <div class="modal" id="socialIconSelectorModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>📱 Insert Social Icons</h2>
+                <span class="close" onclick="closeModal('socialIconSelectorModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px; color: #666;">Select which social media icons to include:</p>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer;">
+                        <input type="checkbox" id="socialFacebook" checked style="margin-right: 10px;">
+                        <span style="font-weight: 500;">Facebook</span>
+                    </label>
+                    <label style="display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer;">
+                        <input type="checkbox" id="socialTwitter" checked style="margin-right: 10px;">
+                        <span style="font-weight: 500;">Twitter/X</span>
+                    </label>
+                    <label style="display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer;">
+                        <input type="checkbox" id="socialLinkedIn" checked style="margin-right: 10px;">
+                        <span style="font-weight: 500;">LinkedIn</span>
+                    </label>
+                    <label style="display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer;">
+                        <input type="checkbox" id="socialInstagram" checked style="margin-right: 10px;">
+                        <span style="font-weight: 500;">Instagram</span>
+                    </label>
+                    <label style="display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer;">
+                        <input type="checkbox" id="socialYouTube" style="margin-right: 10px;">
+                        <span style="font-weight: 500;">YouTube</span>
+                    </label>
+                    <label style="display: flex; align-items: center; padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; cursor: pointer;">
+                        <input type="checkbox" id="socialTikTok" style="margin-right: 10px;">
+                        <span style="font-weight: 500;">TikTok</span>
+                    </label>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="insertSelectedSocialIcons()">Insert Social Icons</button>
+                    <button class="btn btn-secondary" onclick="closeModal('socialIconSelectorModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CTA Selector Modal -->
+    <div class="modal" id="ctaSelectorModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>🔘 Insert Call-to-Action</h2>
+                <span class="close" onclick="closeModal('ctaSelectorModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="ctaForm">
+                    <div class="form-group">
+                        <label>Button Text</label>
+                        <input type="text" id="ctaButtonText" placeholder="e.g., Contact Us, Get Started, Learn More" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Link URL</label>
+                        <input type="url" id="ctaButtonUrl" placeholder="https://example.com" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Button Style</label>
+                        <select id="ctaButtonStyle">
+                            <option value="primary">Primary (Purple Gradient)</option>
+                            <option value="success">Success (Green)</option>
+                            <option value="info">Info (Blue)</option>
+                            <option value="warning">Warning (Orange)</option>
+                            <option value="danger">Danger (Red)</option>
+                        </select>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Insert Button</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('ctaSelectorModal')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Campaign Analytics Modal -->
     <div class="modal" id="campaignAnalyticsModal">
         <div class="modal-content" style="max-width: 900px;">

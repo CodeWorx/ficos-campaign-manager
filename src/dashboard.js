@@ -380,7 +380,7 @@ function renderUsers() {
 // Campaign operations
 
 // Create custom toolbar button for quick template insertion
-function createTemplateButton(label, templateId) {
+function createTemplateButton(label, action) {
     const button = document.createElement('button');
     button.className = 'toastui-editor-toolbar-icons';
     button.style.cssText = 'background: none; border: none; color: #333; padding: 4px 8px; cursor: pointer; font-size: 12px; font-weight: 500;';
@@ -391,15 +391,25 @@ function createTemplateButton(label, templateId) {
         e.preventDefault();
         e.stopPropagation();
 
-        // Load templates if not already loaded
+        // Handle special actions
+        if (action === 'social-modal') {
+            showSocialIconSelector();
+            return;
+        }
+        if (action === 'cta-modal') {
+            showCTASelector();
+            return;
+        }
+
+        // Default: Load templates if not already loaded
         if (!allTemplates || allTemplates.length === 0) {
             await loadTemplates();
         }
 
         // Find and insert the template
-        const template = allTemplates.find(t => t.id === templateId);
+        const template = allTemplates.find(t => t.id === action);
         if (template) {
-            insertTemplate(templateId);
+            insertTemplate(action);
         }
     };
 
@@ -460,12 +470,12 @@ function showCreateCampaign() {
                             name: 'insertFooter'
                         },
                         {
-                            el: createTemplateButton('📱 Social', 'social-facebook'),
-                            tooltip: 'Insert Social Icon',
+                            el: createTemplateButton('📱 Social', 'social-modal'),
+                            tooltip: 'Insert Social Icons',
                             name: 'insertSocial'
                         },
                         {
-                            el: createTemplateButton('🔘 CTA', 'cta-email'),
+                            el: createTemplateButton('🔘 CTA', 'cta-modal'),
                             tooltip: 'Insert Call-to-Action',
                             name: 'insertCTA'
                         }
@@ -2282,6 +2292,121 @@ async function removeAllContactsFromCurrentList() {
     } catch (error) {
         console.error('Error removing all contacts:', error);
         showNotification('Failed to remove all contacts', 'error');
+    }
+}
+
+// ===== SOCIAL ICON AND CTA INSERTION =====
+
+function showSocialIconSelector() {
+    document.getElementById('socialIconSelectorModal').classList.add('show');
+}
+
+function showCTASelector() {
+    document.getElementById('ctaSelectorModal').classList.add('show');
+    // Reset form
+    document.getElementById('ctaButtonText').value = '';
+    document.getElementById('ctaButtonUrl').value = '';
+    document.getElementById('ctaButtonStyle').value = 'primary';
+}
+
+function insertSelectedSocialIcons() {
+    const selectedSocials = [];
+
+    const socialMap = {
+        socialFacebook: { name: 'Facebook', url: 'https://facebook.com', color: '#3b5998', icon: 'facebook' },
+        socialTwitter: { name: 'Twitter', url: 'https://twitter.com', color: '#1DA1F2', icon: 'twitter' },
+        socialLinkedIn: { name: 'LinkedIn', url: 'https://linkedin.com', color: '#0077b5', icon: 'linkedin' },
+        socialInstagram: { name: 'Instagram', url: 'https://instagram.com', color: '#E1306C', icon: 'instagram' },
+        socialYouTube: { name: 'YouTube', url: 'https://youtube.com', color: '#FF0000', icon: 'youtube' },
+        socialTikTok: { name: 'TikTok', url: 'https://tiktok.com', color: '#000000', icon: 'tiktok' }
+    };
+
+    for (const [id, data] of Object.entries(socialMap)) {
+        if (document.getElementById(id).checked) {
+            selectedSocials.push(data);
+        }
+    }
+
+    if (selectedSocials.length === 0) {
+        showNotification('Please select at least one social network', 'error');
+        return;
+    }
+
+    // Build the social icons HTML
+    const socialHTML = `
+<div style="text-align: center; padding: 20px; background-color: #f5f5f5;">
+    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Connect with us:</p>
+    <div style="display: inline-block;">
+        ${selectedSocials.map(social => `
+            <a href="${social.url}" style="display: inline-block; margin: 0 10px; text-decoration: none;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background-color: ${social.color}; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
+                    ${social.name.charAt(0)}
+                </div>
+            </a>
+        `).join('')}
+    </div>
+</div>`;
+
+    // Insert into editor
+    if (campaignEditor) {
+        try {
+            campaignEditor.insertHTML(socialHTML);
+            showNotification('Social icons inserted successfully!', 'success');
+            closeModal('socialIconSelectorModal');
+        } catch (error) {
+            console.error('Error inserting social icons:', error);
+            showNotification('Failed to insert social icons', 'error');
+        }
+    }
+}
+
+// Handle CTA form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const ctaForm = document.getElementById('ctaForm');
+    if (ctaForm) {
+        ctaForm.addEventListener('submit', insertCustomCTA);
+    }
+});
+
+function insertCustomCTA(event) {
+    event.preventDefault();
+
+    const buttonText = document.getElementById('ctaButtonText').value.trim();
+    const buttonUrl = document.getElementById('ctaButtonUrl').value.trim();
+    const buttonStyle = document.getElementById('ctaButtonStyle').value;
+
+    if (!buttonText || !buttonUrl) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+
+    // Define button styles
+    const styles = {
+        primary: 'background: linear-gradient(135deg, #667eea, #764ba2); color: white;',
+        success: 'background: linear-gradient(135deg, #2ecc71, #27ae60); color: white;',
+        info: 'background: linear-gradient(135deg, #3498db, #2980b9); color: white;',
+        warning: 'background: linear-gradient(135deg, #f39c12, #e67e22); color: white;',
+        danger: 'background: linear-gradient(135deg, #e74c3c, #c0392b); color: white;'
+    };
+
+    const ctaHTML = `
+<div style="text-align: center; padding: 30px 20px;">
+    <a href="${escapeHtml(buttonUrl)}" style="display: inline-block; padding: 15px 40px; ${styles[buttonStyle]} text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: transform 0.2s;">
+        ${escapeHtml(buttonText)}
+    </a>
+</div>`;
+
+    // Insert into editor
+    if (campaignEditor) {
+        try {
+            campaignEditor.insertHTML(ctaHTML);
+            showNotification('Call-to-Action button inserted successfully!', 'success');
+            closeModal('ctaSelectorModal');
+            document.getElementById('ctaForm').reset();
+        } catch (error) {
+            console.error('Error inserting CTA:', error);
+            showNotification('Failed to insert CTA button', 'error');
+        }
     }
 }
 

@@ -79,7 +79,9 @@ contextBridge.exposeInMainWorld('api', {
   deleteUser: (id) => ipcRenderer.invoke('delete-user', id),
   getUserPreferences: (userId) => ipcRenderer.invoke('get-user-preferences', userId),
   saveUserPreferences: (data) => ipcRenderer.invoke('save-user-preferences', data),
-  
+  getUserProfile: (userId) => ipcRenderer.invoke('get-user-profile', userId),
+  saveUserProfile: (data) => ipcRenderer.invoke('save-user-profile', data),
+
   // NEW: App Control
   quitApp: () => ipcRenderer.invoke('quit-app'),
   

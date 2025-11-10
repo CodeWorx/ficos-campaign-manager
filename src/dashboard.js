@@ -922,6 +922,9 @@ function openSettings() {
     // Load user preferences
     loadUserPreferencesIntoForm();
 
+    // Load user profile
+    loadUserProfile();
+
     // Show the modal
     document.getElementById('settingsModal').classList.add('show');
 }
@@ -1568,6 +1571,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const editContactListForm = document.getElementById('editContactListForm');
     if (editContactListForm) {
         editContactListForm.addEventListener('submit', saveContactList);
+    }
+
+    const profileForm = document.getElementById('profileForm');
+    if (profileForm) {
+        profileForm.addEventListener('submit', saveUserProfile);
     }
 });
 
@@ -2295,10 +2303,77 @@ async function removeAllContactsFromCurrentList() {
     }
 }
 
+// ===== USER PROFILE MANAGEMENT =====
+
+async function saveUserProfile(event) {
+    event.preventDefault();
+
+    const profileData = {
+        userId: currentUser.userId,
+        socialLinks: {
+            facebook: document.getElementById('profileFacebook').value.trim(),
+            twitter: document.getElementById('profileTwitter').value.trim(),
+            linkedin: document.getElementById('profileLinkedIn').value.trim(),
+            instagram: document.getElementById('profileInstagram').value.trim(),
+            youtube: document.getElementById('profileYouTube').value.trim(),
+            tiktok: document.getElementById('profileTikTok').value.trim()
+        }
+    };
+
+    try {
+        const result = await window.api.saveUserProfile(profileData);
+
+        if (result.success) {
+            showNotification('Profile saved successfully!', 'success');
+        } else {
+            showNotification('Failed to save profile: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error saving profile:', error);
+        showNotification('Failed to save profile', 'error');
+    }
+}
+
+async function loadUserProfile() {
+    try {
+        const profile = await window.api.getUserProfile(currentUser.userId);
+
+        if (profile && profile.social_links) {
+            const links = typeof profile.social_links === 'string'
+                ? JSON.parse(profile.social_links)
+                : profile.social_links;
+
+            document.getElementById('profileFacebook').value = links.facebook || '';
+            document.getElementById('profileTwitter').value = links.twitter || '';
+            document.getElementById('profileLinkedIn').value = links.linkedin || '';
+            document.getElementById('profileInstagram').value = links.instagram || '';
+            document.getElementById('profileYouTube').value = links.youtube || '';
+            document.getElementById('profileTikTok').value = links.tiktok || '';
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+    }
+}
+
 // ===== SOCIAL ICON AND CTA INSERTION =====
 
-function showSocialIconSelector() {
+async function showSocialIconSelector() {
     document.getElementById('socialIconSelectorModal').classList.add('show');
+
+    // Load user's saved social links to pre-populate URLs
+    try {
+        const profile = await window.api.getUserProfile(currentUser.userId);
+        if (profile && profile.social_links) {
+            const links = typeof profile.social_links === 'string'
+                ? JSON.parse(profile.social_links)
+                : profile.social_links;
+
+            // Store for later use when inserting
+            window.userSocialLinks = links;
+        }
+    } catch (error) {
+        console.error('Error loading social links:', error);
+    }
 }
 
 function showCTASelector() {
@@ -2312,13 +2387,16 @@ function showCTASelector() {
 function insertSelectedSocialIcons() {
     const selectedSocials = [];
 
+    // Use user's saved social links if available
+    const userLinks = window.userSocialLinks || {};
+
     const socialMap = {
-        socialFacebook: { name: 'Facebook', url: 'https://facebook.com', color: '#3b5998', icon: 'facebook' },
-        socialTwitter: { name: 'Twitter', url: 'https://twitter.com', color: '#1DA1F2', icon: 'twitter' },
-        socialLinkedIn: { name: 'LinkedIn', url: 'https://linkedin.com', color: '#0077b5', icon: 'linkedin' },
-        socialInstagram: { name: 'Instagram', url: 'https://instagram.com', color: '#E1306C', icon: 'instagram' },
-        socialYouTube: { name: 'YouTube', url: 'https://youtube.com', color: '#FF0000', icon: 'youtube' },
-        socialTikTok: { name: 'TikTok', url: 'https://tiktok.com', color: '#000000', icon: 'tiktok' }
+        socialFacebook: { name: 'Facebook', url: userLinks.facebook || 'https://facebook.com', color: '#3b5998', icon: 'facebook' },
+        socialTwitter: { name: 'Twitter', url: userLinks.twitter || 'https://twitter.com', color: '#1DA1F2', icon: 'twitter' },
+        socialLinkedIn: { name: 'LinkedIn', url: userLinks.linkedin || 'https://linkedin.com', color: '#0077b5', icon: 'linkedin' },
+        socialInstagram: { name: 'Instagram', url: userLinks.instagram || 'https://instagram.com', color: '#E1306C', icon: 'instagram' },
+        socialYouTube: { name: 'YouTube', url: userLinks.youtube || 'https://youtube.com', color: '#FF0000', icon: 'youtube' },
+        socialTikTok: { name: 'TikTok', url: userLinks.tiktok || 'https://tiktok.com', color: '#000000', icon: 'tiktok' }
     };
 
     for (const [id, data] of Object.entries(socialMap)) {

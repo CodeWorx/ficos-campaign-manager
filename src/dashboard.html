@@ -1326,6 +1326,7 @@
             <!-- Settings Tabs -->
             <div class="settings-tabs">
                 <button class="settings-tab active" onclick="switchSettingsTab('branding')">Company Branding</button>
+                <button class="settings-tab" onclick="switchSettingsTab('profile')">My Profile</button>
                 <button class="settings-tab" onclick="switchSettingsTab('email')">Email Settings</button>
                 <button class="settings-tab" onclick="switchSettingsTab('preferences')">User Preferences</button>
             </div>
@@ -1371,6 +1372,50 @@
                     <div class="action-buttons">
                         <button type="submit" class="btn btn-primary">Save Changes</button>
                         <button type="button" class="btn btn-secondary" onclick="closeModal('settingsModal')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- My Profile Tab -->
+            <div class="settings-content" id="profileSettings">
+                <form id="profileForm">
+                    <h3>Default Social Media Links</h3>
+                    <p style="color: #666; margin-bottom: 20px; font-size: 14px;">
+                        Set your default social media URLs. These will be pre-filled when inserting social icons into campaigns.
+                    </p>
+
+                    <div class="form-group">
+                        <label>Facebook URL</label>
+                        <input type="url" id="profileFacebook" placeholder="https://facebook.com/yourpage">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Twitter/X URL</label>
+                        <input type="url" id="profileTwitter" placeholder="https://twitter.com/youraccount">
+                    </div>
+
+                    <div class="form-group">
+                        <label>LinkedIn URL</label>
+                        <input type="url" id="profileLinkedIn" placeholder="https://linkedin.com/company/yourcompany">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Instagram URL</label>
+                        <input type="url" id="profileInstagram" placeholder="https://instagram.com/youraccount">
+                    </div>
+
+                    <div class="form-group">
+                        <label>YouTube URL</label>
+                        <input type="url" id="profileYouTube" placeholder="https://youtube.com/@yourchannel">
+                    </div>
+
+                    <div class="form-group">
+                        <label>TikTok URL</label>
+                        <input type="url" id="profileTikTok" placeholder="https://tiktok.com/@youraccount">
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Save Profile</button>
                     </div>
                 </form>
             </div>

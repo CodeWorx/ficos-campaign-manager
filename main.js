@@ -98,6 +98,7 @@ function initDatabase() {
       notifications TEXT,
       timezone TEXT DEFAULT 'America/New_York',
       date_format TEXT DEFAULT 'MM/DD/YYYY',
+      social_links TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -1591,6 +1592,71 @@ ipcMain.handle('save-user-preferences', async (event, data) => {
     return { success: true };
   } catch (error) {
     log('error', 'Error saving user preferences:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// User profile (social links, etc.)
+ipcMain.handle('get-user-profile', (event, userId) => {
+  try {
+    // Get from user_preferences table
+    const stmt = db.prepare('SELECT * FROM user_preferences WHERE user_id = ?');
+    const profile = stmt.get(userId);
+
+    if (!profile) {
+      return {
+        social_links: JSON.stringify({
+          facebook: '',
+          twitter: '',
+          linkedin: '',
+          instagram: '',
+          youtube: '',
+          tiktok: ''
+        })
+      };
+    }
+
+    return profile;
+  } catch (error) {
+    log('error', 'Error getting user profile:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('save-user-profile', async (event, data) => {
+  try {
+    const { userId, socialLinks } = data;
+    const prefId = uuidv4();
+
+    const socialLinksJson = JSON.stringify(socialLinks);
+
+    // Check if user_preferences exists
+    const existingPrefs = db.prepare('SELECT id FROM user_preferences WHERE user_id = ?').get(userId);
+
+    if (existingPrefs) {
+      // Update existing
+      const stmt = db.prepare(`
+        UPDATE user_preferences
+        SET social_links = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `);
+      stmt.run(socialLinksJson, userId);
+    } else {
+      // Insert new
+      const stmt = db.prepare(`
+        INSERT INTO user_preferences (id, user_id, social_links)
+        VALUES (?, ?, ?)
+      `);
+      stmt.run(prefId, userId, socialLinksJson);
+    }
+
+    // Force WAL checkpoint
+    db.pragma('wal_checkpoint(PASSIVE)');
+
+    log('info', 'User profile saved', { userId });
+    return { success: true };
+  } catch (error) {
+    log('error', 'Error saving user profile:', error);
     return { success: false, error: error.message };
   }
 });

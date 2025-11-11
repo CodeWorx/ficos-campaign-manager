@@ -1777,16 +1777,25 @@ ipcMain.handle('complete-setup', async (event, data) => {
     db.pragma('wal_checkpoint(RESTART)');
 
     // Verify the user was created
-    const userCheck = db.prepare('SELECT COUNT(*) as count FROM users').get();
-    console.log('[SETUP] User count after setup:', userCheck.count);
+    const userCheck = db.prepare('SELECT * FROM users WHERE id = ?').get(result.userId);
+    console.log('[SETUP] User created:', userCheck ? userCheck.email : 'NONE');
 
-    if (userCheck.count === 0) {
+    if (!userCheck) {
       console.error('[SETUP] CRITICAL: User was not persisted!');
       return { success: false, error: 'User creation failed to persist' };
     }
 
+    // Create session for the newly created owner
+    store.set('session', {
+      userId: userCheck.id,
+      email: userCheck.email,
+      name: userCheck.name,
+      role: userCheck.role
+    });
+
+    console.log('[SETUP] Session created for:', userCheck.email);
     console.log('[SETUP] Database checkpointed and flushed. Setup verified successful.');
-    log('info', 'Setup completed successfully', { userCount: userCheck.count });
+    log('info', 'Setup completed successfully', { userId: userCheck.id });
 
     return result;
   } catch (error) {
@@ -1993,13 +2002,13 @@ ipcMain.handle('get-company-settings', () => {
 
 ipcMain.handle('update-company-settings', (event, data) => {
   try {
-    const { companyName, brandColor, companyLogo } = data;
-    
+    const { company_name, brand_color, company_logo } = data;
+
     db.prepare(`
       INSERT OR REPLACE INTO company_settings (id, company_name, brand_color, company_logo, updated_at)
       VALUES ('default', ?, ?, ?, ?)
-    `).run(companyName, brandColor, companyLogo, new Date().toISOString());
-    
+    `).run(company_name, brand_color, company_logo, new Date().toISOString());
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

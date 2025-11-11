@@ -982,9 +982,9 @@
 
                 if (result.success) {
                     btn.textContent = '✓ Success!';
-                    console.log('[SETUP-WIZARD] Setup completed successfully, redirecting to login...');
+                    console.log('[SETUP-WIZARD] Setup completed successfully, redirecting to dashboard...');
                     setTimeout(() => {
-                        window.location.href = 'login.html';
+                        window.location.href = 'dashboard.html';
                     }, 1500);
                 } else {
                     console.error('[SETUP-WIZARD] Setup failed:', result.error);

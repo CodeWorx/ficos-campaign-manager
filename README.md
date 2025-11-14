@@ -4,7 +4,7 @@
 
 A self-hosted, desktop email campaign manager with form building, contact management, and analytics.
 
-[![Build Status](https://github.com/YOUR-USERNAME/ficos-campaign-manager/workflows/Build%20FICOS%20Campaign%20Manager/badge.svg)](https://github.com/YOUR-USERNAME/ficos-campaign-manager/actions)
+[![Build Status](https://github.com/CodeWorx/ficos-campaign-manager/workflows/Build%20FICOS%20Campaign%20Manager/badge.svg)](https://github.com/CodeWorx/ficos-campaign-manager/actions)
 
 ---
 
@@ -23,7 +23,7 @@ A self-hosted, desktop email campaign manager with form building, contact manage
 
 ## 📦 Download
 
-**Latest Release:** [Download Installers](https://github.com/YOUR-USERNAME/ficos-campaign-manager/releases/latest)
+**Latest Release:** [Download Installers](https://github.com/CodeWorx/ficos-campaign-manager/releases/latest)
 
 - **Windows:** `FICOS Campaign Manager Setup.exe`
 - **macOS:** `FICOS Campaign Manager.dmg`
@@ -43,7 +43,7 @@ A self-hosted, desktop email campaign manager with form building, contact manage
 ### For Developers:
 ```bash
 # Clone repository
-git clone https://github.com/YOUR-USERNAME/ficos-campaign-manager.git
+git clone https://github.com/CodeWorx/ficos-campaign-manager.git
 cd ficos-campaign-manager
 
 # Install dependencies
@@ -65,7 +65,7 @@ npm run build:linux  # Linux
 This repository uses GitHub Actions to automatically build installers for all platforms:
 
 - Builds run on every push to `main`/`master`
-- Artifacts are available in the [Actions tab](https://github.com/YOUR-USERNAME/ficos-campaign-manager/actions)
+- Artifacts are available in the [Actions tab](https://github.com/CodeWorx/ficos-campaign-manager/actions)
 - Tagged releases automatically create GitHub Releases with installers
 
 ---

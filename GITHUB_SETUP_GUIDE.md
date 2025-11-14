@@ -70,7 +70,7 @@ git commit -m "Initial commit - FICOS Campaign Manager v3.1"
 
 # Connect to your GitHub repository
 # Replace YOUR-USERNAME with your actual GitHub username
-git remote add origin https://github.com/YOUR-USERNAME/ficos-campaign-manager.git
+git remote add origin https://github.com/CodeWorx/ficos-campaign-manager.git
 
 # Push to GitHub
 git branch -M main
@@ -96,7 +96,7 @@ git push -u origin main
 
 Once you push the code:
 
-1. Go to your repository: `https://github.com/YOUR-USERNAME/ficos-campaign-manager`
+1. Go to your repository: `https://github.com/CodeWorx/ficos-campaign-manager`
 2. Click the **Actions** tab
 3. You'll see a workflow running: "Build FICOS Campaign Manager"
 4. Wait ~10-15 minutes for it to complete
@@ -214,7 +214,7 @@ cd C:\Users\nicho\Documents\ficos-app
 git init
 git add .
 git commit -m "Initial commit"
-git remote add origin https://github.com/YOUR-USERNAME/ficos-campaign-manager.git
+git remote add origin https://github.com/CodeWorx/ficos-campaign-manager.git
 git branch -M main
 git push -u origin main
 

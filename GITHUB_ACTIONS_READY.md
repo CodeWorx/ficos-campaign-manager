@@ -48,7 +48,7 @@ cd C:\Users\nicho\Documents\ficos-app
 git init
 git add .
 git commit -m "Initial commit - FICOS Campaign Manager v3.1"
-git remote add origin https://github.com/YOUR-USERNAME/ficos-campaign-manager.git
+git remote add origin https://github.com/CodeWorx/ficos-campaign-manager.git
 git branch -M main
 git push -u origin main
 ```
@@ -67,7 +67,7 @@ When pushing, you'll need a token (not your password):
 7. Use this token as your password when Git asks
 
 ### **Step 6: GitHub Builds Your .exe!**
-1. Go to your repo: `https://github.com/YOUR-USERNAME/ficos-campaign-manager`
+1. Go to your repo: `https://github.com/CodeWorx/ficos-campaign-manager`
 2. Click **Actions** tab
 3. Watch the build run (~10-15 minutes)
 4. When done, see green checkmarks ✅

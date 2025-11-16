@@ -43,7 +43,7 @@ cd C:\Users\nicho\Documents\ficos-app
 git init
 git add .
 git commit -m "Initial commit"
-git remote add origin https://github.com/YOUR-USERNAME/ficos-campaign-manager.git
+git remote add origin https://github.com/CodeWorx/ficos-campaign-manager.git
 git branch -M main
 git push -u origin main
 ```
@@ -54,7 +54,7 @@ git push -u origin main
 
 ### 6️⃣ WAIT FOR BUILD (15 min)
 ```
-https://github.com/YOUR-USERNAME/ficos-campaign-manager/actions
+https://github.com/CodeWorx/ficos-campaign-manager/actions
 ```
 Watch the build progress → Wait for green checkmark ✅
 
@@ -75,7 +75,7 @@ cd C:\Users\nicho\Documents\ficos-app
 git init
 git add .
 git commit -m "Initial commit"
-git remote add origin https://github.com/YOUR-USERNAME/ficos-campaign-manager.git
+git remote add origin https://github.com/CodeWorx/ficos-campaign-manager.git
 git branch -M main
 git push -u origin main
 ```

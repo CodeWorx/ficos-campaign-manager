@@ -8,6 +8,8 @@ const Store = require('electron-store');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const os = require('os');
+const { autoUpdater } = require('electron-updater');
 
 // Initialize electron-store for app settings
 const store = new Store();
@@ -254,6 +256,23 @@ function initDatabase() {
       tos_version TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS licenses (
+      id TEXT PRIMARY KEY,
+      license_key TEXT UNIQUE NOT NULL,
+      email TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      mac_address TEXT,
+      ip_address TEXT,
+      hostname TEXT,
+      os_info TEXT,
+      status TEXT DEFAULT 'active',
+      issued_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      last_validated TEXT DEFAULT CURRENT_TIMESTAMP,
+      revoked_at TEXT,
+      revoked_reason TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS campaign_templates (
@@ -520,6 +539,299 @@ function isTosAccepted() {
   }
 }
 
+// ==================== LICENSING SYSTEM ====================
+
+// Get MAC addresses from network interfaces
+function getMacAddresses() {
+  const networkInterfaces = os.networkInterfaces();
+  const macAddresses = [];
+
+  for (const interfaceName in networkInterfaces) {
+    const interfaces = networkInterfaces[interfaceName];
+    for (const iface of interfaces) {
+      if (iface.mac && iface.mac !== '00:00:00:00:00:00') {
+        macAddresses.push(iface.mac);
+      }
+    }
+  }
+
+  return macAddresses.length > 0 ? macAddresses[0] : 'unknown';
+}
+
+// Get local IP addresses
+function getLocalIpAddress() {
+  const networkInterfaces = os.networkInterfaces();
+
+  for (const interfaceName in networkInterfaces) {
+    const interfaces = networkInterfaces[interfaceName];
+    for (const iface of interfaces) {
+      // Skip internal and non-IPv4 addresses
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+
+  return '127.0.0.1';
+}
+
+// Get comprehensive device information
+function getDeviceInfo() {
+  return {
+    deviceId: crypto.createHash('sha256')
+      .update(os.hostname() + os.platform() + os.arch() + getMacAddresses())
+      .digest('hex'),
+    macAddress: getMacAddresses(),
+    ipAddress: getLocalIpAddress(),
+    hostname: os.hostname(),
+    osInfo: JSON.stringify({
+      platform: os.platform(),
+      release: os.release(),
+      arch: os.arch(),
+      type: os.type(),
+      version: os.version()
+    })
+  };
+}
+
+// Generate a unique license key
+function generateLicenseKey() {
+  // Format: XXXX-XXXX-XXXX-XXXX-XXXX (20 characters + 4 dashes)
+  const segments = [];
+  for (let i = 0; i < 5; i++) {
+    segments.push(crypto.randomBytes(2).toString('hex').toUpperCase());
+  }
+  return segments.join('-');
+}
+
+// Validate license key format
+function isValidLicenseKeyFormat(key) {
+  // Check format: XXXX-XXXX-XXXX-XXXX-XXXX
+  const pattern = /^[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/;
+  return pattern.test(key);
+}
+
+// Check if a valid license exists
+function hasValidLicense() {
+  try {
+    const deviceInfo = getDeviceInfo();
+    const stmt = db.prepare(`
+      SELECT * FROM licenses
+      WHERE device_id = ?
+      AND status = 'active'
+      AND revoked_at IS NULL
+      ORDER BY issued_at DESC
+      LIMIT 1
+    `);
+    const license = stmt.get(deviceInfo.deviceId);
+
+    if (license) {
+      // Update last validated time
+      db.prepare('UPDATE licenses SET last_validated = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(license.id);
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    logger.error('Error checking license:', error);
+    return false;
+  }
+}
+
+// Request a new license
+function requestLicense(email) {
+  try {
+    const deviceInfo = getDeviceInfo();
+
+    // Check if license already exists for this device
+    const existingLicense = db.prepare('SELECT * FROM licenses WHERE device_id = ? AND status = "active"')
+      .get(deviceInfo.deviceId);
+
+    if (existingLicense) {
+      logger.info('License already exists for this device');
+      return {
+        success: true,
+        license: existingLicense,
+        message: 'License already active'
+      };
+    }
+
+    // Generate new license
+    const licenseId = uuidv4();
+    const licenseKey = generateLicenseKey();
+
+    const stmt = db.prepare(`
+      INSERT INTO licenses (
+        id, license_key, email, device_id, mac_address,
+        ip_address, hostname, os_info, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `);
+
+    stmt.run(
+      licenseId,
+      licenseKey,
+      email,
+      deviceInfo.deviceId,
+      deviceInfo.macAddress,
+      deviceInfo.ipAddress,
+      deviceInfo.hostname,
+      deviceInfo.osInfo
+    );
+
+    logger.info('New license created:', licenseKey);
+
+    // Log to audit
+    logAudit(null, 'LICENSE_REQUESTED', 'license', licenseId, JSON.stringify({
+      email,
+      deviceId: deviceInfo.deviceId,
+      macAddress: deviceInfo.macAddress,
+      ipAddress: deviceInfo.ipAddress
+    }));
+
+    return {
+      success: true,
+      license: {
+        id: licenseId,
+        licenseKey,
+        email,
+        ...deviceInfo
+      },
+      message: 'License issued successfully'
+    };
+  } catch (error) {
+    logger.error('Error requesting license:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Revoke a license
+function revokeLicense(licenseKey, reason = 'Manual revocation') {
+  try {
+    const stmt = db.prepare(`
+      UPDATE licenses
+      SET status = 'revoked',
+          revoked_at = CURRENT_TIMESTAMP,
+          revoked_reason = ?
+      WHERE license_key = ?
+    `);
+
+    const result = stmt.run(reason, licenseKey);
+
+    if (result.changes > 0) {
+      logger.info('License revoked:', licenseKey, 'Reason:', reason);
+
+      // Log to audit
+      logAudit(null, 'LICENSE_REVOKED', 'license', licenseKey, JSON.stringify({
+        reason
+      }));
+
+      return {
+        success: true,
+        message: 'License revoked successfully'
+      };
+    } else {
+      return {
+        success: false,
+        error: 'License not found'
+      };
+    }
+  } catch (error) {
+    logger.error('Error revoking license:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Get all licenses
+function getAllLicenses() {
+  try {
+    const stmt = db.prepare('SELECT * FROM licenses ORDER BY issued_at DESC');
+    return stmt.all();
+  } catch (error) {
+    logger.error('Error getting licenses:', error);
+    return [];
+  }
+}
+
+// ==================== AUTO-UPDATE SYSTEM ====================
+
+// Configure auto-updater
+function setupAutoUpdater() {
+  // Configure update server (you'll need to set this up)
+  // For GitHub releases, it will auto-detect from package.json
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    logger.info('Checking for updates...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    logger.info('Update available:', info.version);
+
+    // Notify user about update
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', {
+        currentVersion: app.getVersion(),
+        newVersion: info.version,
+        releaseNotes: info.releaseNotes
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    logger.info('Update not available. Current version:', info.version);
+  });
+
+  autoUpdater.on('error', (err) => {
+    logger.error('Auto-updater error:', err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    logger.info('Download progress:', progressObj.percent + '%');
+
+    if (mainWindow) {
+      mainWindow.webContents.send('download-progress', {
+        percent: progressObj.percent,
+        transferred: progressObj.transferred,
+        total: progressObj.total
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    logger.info('Update downloaded:', info.version);
+
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', {
+        version: info.version
+      });
+    }
+  });
+
+  // Check for updates on startup (after 10 seconds)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      logger.error('Failed to check for updates:', err);
+    });
+  }, 10000);
+
+  // Check for updates every 4 hours
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      logger.error('Failed to check for updates:', err);
+    });
+  }, 4 * 60 * 60 * 1000);
+}
+
+// ==================== END LICENSING & UPDATE SYSTEM ====================
+
 // Create main window
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -536,12 +848,19 @@ function createWindow() {
 
   // Show splash screen
   mainWindow.loadFile('src/splash.html');
-  
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    
+
     // After 2 seconds, check navigation path
     setTimeout(() => {
+      // Check license first
+      if (!hasValidLicense()) {
+        logger.warn('No valid license found - license required');
+        // Note: You could redirect to a license activation page here
+        // For now, we'll let the setup process handle license request
+      }
+
       if (!isTosAccepted()) {
         // Must accept TOS first
         mainWindow.loadFile('src/terms-of-service.html');
@@ -1757,11 +2076,23 @@ ipcMain.handle('complete-setup', async (event, data) => {
         console.log('[SETUP] Imported', deviceContactCount, 'device contacts');
       }
 
+      // Automatically request license for this installation
+      const licenseResult = requestLicense(email);
+      if (licenseResult.success) {
+        console.log('[SETUP] License automatically issued:', licenseResult.license.licenseKey);
+      } else {
+        console.error('[SETUP] License request failed:', licenseResult.error);
+      }
+
       logAudit(userId, 'SETUP_COMPLETED', 'SYSTEM', 'setup', 'Initial setup completed');
 
       console.log('[SETUP] Setup completed successfully');
 
-      return { success: true, userId };
+      return {
+        success: true,
+        userId,
+        license: licenseResult.success ? licenseResult.license : null
+      };
     } catch (error) {
       console.error('[SETUP] Setup transaction error:', error);
       throw error;
@@ -2015,6 +2346,144 @@ ipcMain.handle('update-company-settings', (event, data) => {
   }
 });
 
+// ==================== LICENSING IPC HANDLERS ====================
+
+// Get device information
+ipcMain.handle('get-device-info', () => {
+  try {
+    return {
+      success: true,
+      deviceInfo: getDeviceInfo()
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Request a license
+ipcMain.handle('request-license', (event, email) => {
+  return requestLicense(email);
+});
+
+// Check if license is valid
+ipcMain.handle('check-license', () => {
+  try {
+    return {
+      success: true,
+      valid: hasValidLicense(),
+      deviceInfo: getDeviceInfo()
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Get current license
+ipcMain.handle('get-current-license', () => {
+  try {
+    const deviceInfo = getDeviceInfo();
+    const stmt = db.prepare(`
+      SELECT * FROM licenses
+      WHERE device_id = ?
+      AND status = 'active'
+      ORDER BY issued_at DESC
+      LIMIT 1
+    `);
+    const license = stmt.get(deviceInfo.deviceId);
+
+    return {
+      success: true,
+      license: license || null
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Get all licenses (admin only)
+ipcMain.handle('get-all-licenses', () => {
+  try {
+    const licenses = getAllLicenses();
+    return {
+      success: true,
+      licenses
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Revoke a license (admin only)
+ipcMain.handle('revoke-license', (event, { licenseKey, reason }) => {
+  return revokeLicense(licenseKey, reason);
+});
+
+// ==================== AUTO-UPDATE IPC HANDLERS ====================
+
+// Check for updates manually
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return {
+      success: true,
+      updateInfo: result ? result.updateInfo : null
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Download update
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Install update and restart
+ipcMain.handle('install-update', () => {
+  try {
+    autoUpdater.quitAndInstall(false, true);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+});
+
+// Get current version
+ipcMain.handle('get-app-version', () => {
+  return {
+    success: true,
+    version: app.getVersion()
+  };
+});
+
+// ==================== END LICENSING & UPDATE HANDLERS ====================
+
 // App initialization
 // Scheduled Campaign Checker
 let campaignSchedulerInterval = null;
@@ -2098,6 +2567,7 @@ app.whenReady().then(() => {
   initDatabase();
   createWindow();
   startCampaignScheduler();
+  setupAutoUpdater(); // Initialize auto-updater
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

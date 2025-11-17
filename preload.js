@@ -107,5 +107,24 @@ contextBridge.exposeInMainWorld('api', {
 
   // NEW: Logging
   openLogs: () => ipcRenderer.invoke('open-logs'),
-  getLogPath: () => ipcRenderer.invoke('get-log-path')
+  getLogPath: () => ipcRenderer.invoke('get-log-path'),
+
+  // NEW: Licensing System
+  getDeviceInfo: () => ipcRenderer.invoke('get-device-info'),
+  requestLicense: (email) => ipcRenderer.invoke('request-license', email),
+  checkLicense: () => ipcRenderer.invoke('check-license'),
+  getCurrentLicense: () => ipcRenderer.invoke('get-current-license'),
+  getAllLicenses: () => ipcRenderer.invoke('get-all-licenses'),
+  revokeLicense: (data) => ipcRenderer.invoke('revoke-license', data),
+
+  // NEW: Auto-Update System
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  // NEW: Update event listeners
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, data) => callback(data)),
+  onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, data) => callback(data)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, data) => callback(data))
 });

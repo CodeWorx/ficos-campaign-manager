@@ -103,6 +103,8 @@ npm run build        # Current platform
 
 Built files go to `dist/` folder.
 
+**Note:** GitHub Actions uses Ubuntu runners which can cross-compile for Windows, macOS, and Linux. You get 2,000 free minutes/month for public repositories.
+
 ---
 
 ## 🔐 GitHub Token Setup
@@ -185,8 +187,14 @@ Recommended versioning:
 - Manual trigger via "Actions" tab
 
 ### Jobs:
-1. **build-windows**: Builds Windows installer + latest.yml
-2. **create-release**: Creates GitHub release (only for tags)
+1. **build-windows**: Builds Windows installer + latest.yml (runs on ubuntu-latest)
+2. **create-release**: Creates GitHub release (only for tags, runs on ubuntu-latest)
+
+### Runners:
+- Uses **GitHub-hosted runners** (ubuntu-latest)
+- Free for public repositories (2,000 minutes/month)
+- Cross-compiles Windows executables using electron-builder
+- No maintenance required
 
 ### Artifacts:
 - Kept for 30 days

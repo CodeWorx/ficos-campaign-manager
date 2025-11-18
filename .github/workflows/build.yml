@@ -3,6 +3,8 @@ name: Build FICOS Campaign Manager
 on:
   push:
     branches: [ main, master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -30,23 +32,46 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: FICOS-Campaign-Manager-Windows
-        path: dist/*.exe
+        path: |
+          dist/*.exe
+          dist/latest.yml
         retention-days: 30
+
+    - name: List built files
+      run: |
+        echo "=== Built files in dist/ ==="
+        ls -lah dist/
+      shell: bash
 
   create-release:
     needs: [build-windows]
     runs-on: self-hosted
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Download all artifacts
       uses: actions/download-artifact@v4
 
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      shell: bash
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
       with:
+        name: Release v${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
         files: |
           FICOS-Campaign-Manager-Windows/*.exe
+          FICOS-Campaign-Manager-Windows/latest.yml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

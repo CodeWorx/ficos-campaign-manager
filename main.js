@@ -861,16 +861,24 @@ function createWindow() {
         // For now, we'll let the setup process handle license request
       }
 
+      let targetPage = 'src/login.html';
+
       if (!isTosAccepted()) {
         // Must accept TOS first
-        mainWindow.loadFile('src/terms-of-service.html');
+        targetPage = 'src/terms-of-service.html';
       } else if (needsSetup()) {
         // Setup wizard for new installations
-        mainWindow.loadFile('src/setup-wizard.html');
-      } else {
-        // Normal login
-        mainWindow.loadFile('src/login.html');
+        targetPage = 'src/setup-wizard.html';
       }
+
+      // Load the target page and ensure focus
+      mainWindow.loadFile(targetPage).then(() => {
+        // Force focus to the window after page loads
+        setTimeout(() => {
+          mainWindow.focus();
+          mainWindow.webContents.focus();
+        }, 100);
+      });
     }, 2000);
   });
 

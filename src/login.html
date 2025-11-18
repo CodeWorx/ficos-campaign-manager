@@ -76,7 +76,6 @@
             margin-bottom: 8px;
             font-size: 14px;
             cursor: pointer;
-            pointer-events: auto;
         }
         
         input {
@@ -86,12 +85,6 @@
             border-radius: 8px;
             font-size: 15px;
             transition: border-color 0.3s;
-            pointer-events: auto;
-            user-select: text;
-            -webkit-user-select: text;
-            position: relative;
-            z-index: 1;
-            background: white;
         }
         
         input:focus {
@@ -190,76 +183,6 @@
     </div>
     
     <script>
-        // Ensure inputs are enabled on page load
-        // Aggressively enable inputs
-        function enableInputs() {
-            console.log('[LOGIN] Enabling all inputs...');
-            try {
-                document.querySelectorAll('input, textarea, select, button').forEach((elem, index) => {
-                    elem.removeAttribute('disabled');
-                    elem.removeAttribute('readonly');
-                    elem.setAttribute('autocomplete', elem.type === 'password' ? 'current-password' : 'on');
-
-                    // Force enable styling
-                    elem.style.setProperty('pointer-events', 'auto', 'important');
-                    elem.style.setProperty('user-select', 'text', 'important');
-                    elem.style.setProperty('-webkit-user-select', 'text', 'important');
-                    elem.style.setProperty('opacity', '1', 'important');
-                    elem.style.setProperty('cursor', elem.tagName === 'BUTTON' ? 'pointer' : 'text', 'important');
-
-                    // Force enable on click
-                    elem.addEventListener('click', function(e) {
-                        console.log('[LOGIN] Input clicked:', this.id || this.name || index);
-                        this.removeAttribute('disabled');
-                        this.removeAttribute('readonly');
-                        this.focus();
-                    }, { once: false });
-
-                    // Force enable on focus
-                    elem.addEventListener('focus', function() {
-                        this.removeAttribute('disabled');
-                        this.removeAttribute('readonly');
-                    }, { once: false });
-
-                    // Force enable on mousedown
-                    elem.addEventListener('mousedown', function() {
-                        this.removeAttribute('disabled');
-                        this.removeAttribute('readonly');
-                    }, { once: false });
-                });
-                console.log('[LOGIN] All inputs enabled successfully');
-            } catch (error) {
-                console.error('[LOGIN] Error enabling inputs:', error);
-            }
-        }
-
-        // Watch for any DOM changes that might disable inputs
-        const observer = new MutationObserver(() => {
-            enableInputs();
-        });
-
-        // Run immediately
-        enableInputs();
-
-        // Run on DOMContentLoaded
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('[LOGIN] DOM loaded, enabling inputs');
-            enableInputs();
-
-            // Start observing after DOM is loaded
-            observer.observe(document.body, {
-                attributes: true,
-                attributeFilter: ['disabled', 'readonly'],
-                subtree: true
-            });
-        });
-
-        // Run after delays
-        setTimeout(enableInputs, 100);
-        setTimeout(enableInputs, 500);
-        setTimeout(enableInputs, 1000);
-        setTimeout(enableInputs, 2000);
-
         const form = document.getElementById('loginForm');
         const loginBtn = document.getElementById('loginBtn');
         const errorMessage = document.getElementById('errorMessage');

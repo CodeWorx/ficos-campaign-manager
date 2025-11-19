@@ -983,18 +983,24 @@ async function loadAndApplyCompanySettings() {
 }
 
 function applyBrandingToUI(settings) {
+    console.log('[BRANDING] Applying branding with settings:', settings);
     const companyName = settings.company_name || 'FICOS';
     const brandColor = settings.brand_color || '#667eea';
     const companyLogo = settings.company_logo;
+
+    console.log('[BRANDING] Company name:', companyName);
+    console.log('[BRANDING] Brand color:', brandColor);
 
     // Update sidebar company name
     const logoText = document.getElementById('sidebarLogoText');
     const logoSub = document.getElementById('sidebarLogoSub');
 
-    if (companyName && companyName !== 'FICOS') {
+    if (companyName && companyName !== 'FICOS' && companyName !== '') {
+        console.log('[BRANDING] Setting custom company name:', companyName);
         logoText.textContent = companyName;
         logoSub.style.display = 'none';
     } else {
+        console.log('[BRANDING] Using default FICOS branding');
         logoText.textContent = 'FICOS';
         logoSub.textContent = 'Campaign Manager';
         logoSub.style.display = 'block';

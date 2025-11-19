@@ -533,8 +533,11 @@ function isTosAccepted() {
   try {
     const stmt = db.prepare('SELECT tos_accepted, tos_version FROM company_settings WHERE id = "default"');
     const result = stmt.get();
-    return result && result.tos_accepted === 1 && result.tos_version === '3.0';
+    const accepted = result && result.tos_accepted === 1 && result.tos_version === '3.0';
+    logger.info('[TOS CHECK] TOS accepted:', accepted, 'Result:', result);
+    return accepted;
   } catch (error) {
+    logger.error('[TOS CHECK] Error checking TOS:', error);
     return false;
   }
 }
@@ -2124,6 +2127,17 @@ ipcMain.handle('complete-setup', async (event, data) => {
       return { success: false, error: 'User creation failed to persist' };
     }
 
+    // Verify company settings were saved
+    const settingsCheck = db.prepare('SELECT * FROM company_settings WHERE id = "default"').get();
+    console.log('[SETUP] Company settings saved:', settingsCheck ? settingsCheck.company_name : 'NONE');
+    console.log('[SETUP] TOS accepted:', settingsCheck ? settingsCheck.tos_accepted : 'NONE');
+    console.log('[SETUP] TOS version:', settingsCheck ? settingsCheck.tos_version : 'NONE');
+
+    if (!settingsCheck || !settingsCheck.tos_accepted) {
+      console.error('[SETUP] CRITICAL: Company settings were not persisted!');
+      return { success: false, error: 'Company settings failed to persist' };
+    }
+
     // Create session for the newly created owner
     store.set('session', {
       userId: userCheck.id,
@@ -2134,7 +2148,7 @@ ipcMain.handle('complete-setup', async (event, data) => {
 
     console.log('[SETUP] Session created for:', userCheck.email);
     console.log('[SETUP] Database checkpointed and flushed. Setup verified successful.');
-    log('info', 'Setup completed successfully', { userId: userCheck.id });
+    log('info', 'Setup completed successfully', { userId: userCheck.id, companyName: settingsCheck.company_name });
 
     return result;
   } catch (error) {
@@ -2325,12 +2339,14 @@ ipcMain.handle('get-user-activity', (event, userId) => {
 ipcMain.handle('get-company-settings', () => {
   try {
     const settings = db.prepare('SELECT * FROM company_settings WHERE id = "default"').get();
+    logger.info('[GET COMPANY SETTINGS]', settings);
     return settings || {
       company_name: '',
       brand_color: '#667eea',
       company_logo: null
     };
   } catch (error) {
+    logger.error('[GET COMPANY SETTINGS] Error:', error);
     return {
       company_name: '',
       brand_color: '#667eea',
@@ -2343,13 +2359,32 @@ ipcMain.handle('update-company-settings', (event, data) => {
   try {
     const { company_name, brand_color, company_logo } = data;
 
-    db.prepare(`
-      INSERT OR REPLACE INTO company_settings (id, company_name, brand_color, company_logo, updated_at)
-      VALUES ('default', ?, ?, ?, ?)
-    `).run(company_name, brand_color, company_logo, new Date().toISOString());
+    // Get existing settings to preserve TOS fields
+    const existing = db.prepare('SELECT * FROM company_settings WHERE id = "default"').get();
+
+    if (existing) {
+      // Update existing record, preserving TOS fields
+      db.prepare(`
+        UPDATE company_settings
+        SET company_name = ?,
+            brand_color = ?,
+            company_logo = ?,
+            updated_at = ?
+        WHERE id = 'default'
+      `).run(company_name, brand_color, company_logo, new Date().toISOString());
+    } else {
+      // Insert new record (shouldn't happen after setup, but handle it)
+      db.prepare(`
+        INSERT INTO company_settings (id, company_name, brand_color, company_logo, updated_at)
+        VALUES ('default', ?, ?, ?, ?)
+      `).run(company_name, brand_color, company_logo, new Date().toISOString());
+    }
+
+    logger.info('Company settings updated:', { company_name, brand_color });
 
     return { success: true };
   } catch (error) {
+    logger.error('Error updating company settings:', error);
     return { success: false, error: error.message };
   }
 });

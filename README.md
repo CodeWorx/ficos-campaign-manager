@@ -18,6 +18,7 @@ A self-hosted, desktop email campaign manager with form building, contact manage
 - ✅ **Owner Oversight** - Complete transparency of all user activities
 - ✅ **Self-Hosted** - Your data stays on your machine
 - ✅ **No Monthly Fees** - Free unlimited use
+- ✅ **Open Source** - Transparent open source code
 
 ---
 
@@ -82,8 +83,8 @@ This repository uses GitHub Actions to automatically build installers for all pl
 
 - **Terms of Service:** Users must accept TOS before using the app
 - **Anti-Spam:** ZERO TOLERANCE policy - CAN-SPAM Act compliance required
-- **License:** Proprietary - Licensed to FICOS
-- **IP Protection:** Cannot redistribute, copy, or remove branding. OS version will be released after initial testing
+- **Premium License:** Proprietary - Licensed to FICOS
+- **IP Protection:** Cannot redistribute, copy, or remove branding. OS version will be released after initial testing.
 
 ---
 
@@ -117,7 +118,7 @@ This repository uses GitHub Actions to automatically build installers for all pl
 
 ## 🤝 Contributing
 
-Stay tuned, OS version is on the way
+Create a new PR 
 
 ---
 
